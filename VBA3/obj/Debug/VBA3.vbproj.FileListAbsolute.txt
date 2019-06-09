@@ -1,0 +1,12 @@
+c:\users\сергей\documents\visual studio 2015\Projects\VBA3\VBA3\bin\Debug\VBA3.exe.config
+c:\users\сергей\documents\visual studio 2015\Projects\VBA3\VBA3\bin\Debug\VBA3.exe
+c:\users\сергей\documents\visual studio 2015\Projects\VBA3\VBA3\bin\Debug\VBA3.pdb
+c:\users\сергей\documents\visual studio 2015\Projects\VBA3\VBA3\bin\Debug\VBA3.xml
+c:\users\сергей\documents\visual studio 2015\Projects\VBA3\VBA3\obj\Debug\VBA3.Form1.resources
+c:\users\сергей\documents\visual studio 2015\Projects\VBA3\VBA3\obj\Debug\VBA3.Resources.resources
+c:\users\сергей\documents\visual studio 2015\Projects\VBA3\VBA3\obj\Debug\VBA3.vbproj.GenerateResource.Cache
+c:\users\сергей\documents\visual studio 2015\Projects\VBA3\VBA3\obj\Debug\VBA3.exe
+c:\users\сергей\documents\visual studio 2015\Projects\VBA3\VBA3\obj\Debug\VBA3.xml
+c:\users\сергей\documents\visual studio 2015\Projects\VBA3\VBA3\obj\Debug\VBA3.pdb
+c:\users\сергей\documents\visual studio 2015\Projects\VBA3\VBA3\obj\Debug\VBA3.vbprojResolveAssemblyReference.cache
+c:\users\сергей\documents\visual studio 2015\Projects\VBA3\VBA3\obj\Debug\VBA3.vbproj.ResolveComReference.cache
