@@ -3,11 +3,17 @@ Imports Inventor
 Imports Microsoft.Office.Interop
 
 Public Class Form1
+    'структура имя параметра-значение параметра
+    Private Structure PartParameter
+        Public name As String
+        Public value As String
+    End Structure
+
     'глобальные переменные
     Dim _invApplication As Application = Nothing 'приложение Inventor
     Dim _openFileDialog As New OpenFileDialog 'диалог выбора файла
     Dim _conn As OleDb.OleDbConnection 'подключение к источнику данных
-    Dim _listExcel, _listAssembly As New List(Of String)() 'спсики для хранение данных из excel и assembly
+    Dim _listExcel, _listAssembly As New List(Of String)() 'списки для хранения данных из excel и assembly
     Dim _excelCellsRead As String = "F14:G225" 'какие ячейки считывать из excel
 
     'функция автоматически запускается перед открытием формы. 
@@ -312,8 +318,90 @@ Public Class Form1
         End If
     End Function
 
+    'вспомогательная функция: проверить видимость 2d эскизов и объектов вспомогательной геометрии (плоскости, оси, точки). true - они все невидимы, false - есть как минимум 1 видимый объект
+    Private Function isOriginsInvisible(ByVal oDoc As Document) As Boolean
+        Dim isInvisible As Boolean = True
+
+        ' получть все 2d эскизы детали и проверить их видимость
+        Dim oSketches As PlanarSketches = oDoc.ComponentDefinition.Sketches
+        For Each oSketch In oSketches
+            If oSketch.Visible = True Then
+                isInvisible = False
+                Return isInvisible 'выход из всей функции 
+            End If
+        Next
+
+        'look at the WorkPlanes collection (все плоскости документа)
+        For Each oWorkPlane In oDoc.ComponentDefinition.WorkPlanes
+            If oWorkPlane.Visible = True Then
+                isInvisible = False
+                Return isInvisible 'выход из всей функции 
+            End If
+        Next
+
+        'look at the WorkAxes collection (все оси документа)
+        For Each oWorkAxe In oDoc.ComponentDefinition.WorkAxes
+            If oWorkAxe.Visible = True Then
+                isInvisible = False
+                Return isInvisible 'выход из всей функции 
+            End If
+        Next
+
+        'look at the WorkPoints collection (все точки документа)
+        For Each oWorkPoint In oDoc.ComponentDefinition.WorkPoints
+            If oWorkPoint.Visible = True Then
+                isInvisible = False
+                Return isInvisible 'выход из всей функции 
+            End If
+        Next
+
+        'look at the WorkSurfaces collection (все поверхности(?) документа)
+        'For Each oWorkSurface In oDoc.ComponentDefinition.WorkSurfaces
+        '    If oWorkSurface.Visible = False Then
+        '        MsgBox(oWorkSurface.Name & " Visible false: ok")
+        '    Else
+        '        MsgBox(oWorkSurface.Name & "Visible true: not ok")
+        '    End If
+        'Next        
+        Return isInvisible
+    End Function
+
+    'вспомогательная функция: получить таблицу свойств детали (доступ к таблице параметров)
+    Private Function getParametersFromPart(ByVal partDoc As Document) As List(Of PartParameter)
+        Dim allParams As Parameters = partDoc.ComponentDefinition.Parameters
+        Dim listOfParameters As New List(Of PartParameter)() 'список параметров документа
+
+        If allParams.Count > 0 Then
+            For Each param As Parameter In allParams
+                Dim partParameter As PartParameter
+                partParameter.name = param.Name
+                partParameter.value = (param.ModelValue * 10).ToString
+                listOfParameters.Add(partParameter)
+            Next
+        End If
+
+        Return listOfParameters
+    End Function
+
+    'вспомогательная функция: вернуть из структуры типа PartParameter значение по имени
+    Private Function findValueInPartParamListByName(ByVal name As String, ByVal list As List(Of PartParameter)) As String
+        Dim value As String = ""
+
+        For Each elem As PartParameter In list
+            If elem.name = name Then
+                value = elem.value
+                Exit For
+            End If
+        Next
+
+        Return value
+    End Function
+
     'Функции получения данных из деталей, сборки, чертежей
     Private Sub getPart001(ByVal partDoc As Document)
+        Dim listOfParameters As New List(Of PartParameter)()  'получить список параметров документа
+        listOfParameters = getParametersFromPart(partDoc)
+
         ' Get the PropertySets object.
         Dim oPropSets As PropertySets = partDoc.PropertySets
 
@@ -336,43 +424,56 @@ Public Class Form1
         _listAssembly.Add(oPropSetDTP.Item("Material").Value) 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Присвоение представления", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        Dim filespec As String = partDoc.File.FullFileName 'получить полное имя фаила
+        Dim fs, f
+        fs = CreateObject("Scripting.FileSystemObject")
+        f = fs.GetFile(filespec)
+        _listAssembly.Add("Создан: " & f.DateCreated.ToString & " Изменен: " & f.DateLastModified.ToString) 'дата создания и дата изменения
         dgvDataFromAssembly.Rows.Add("Проверка даты создания (изменения) файла", _listAssembly.Last) 'записать value в dgvAssembly
 
         _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Деталь твердотельная (не поверхности)", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        Dim countOfSolidBody As Integer = 0
+        Dim oCompDef As ComponentDefinition = partDoc.ComponentDefinition
+        For Each SurfaceBody In oCompDef.SurfaceBodies
+            countOfSolidBody += 1
+        Next
+        If countOfSolidBody = 1 Then
+            _listAssembly.Add(True) 'true - да, из одного
+        Else
+            _listAssembly.Add(False) 'false - нет, не из одного
+        End If
         dgvDataFromAssembly.Rows.Add("Деталь состоит из одного твердого тела", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        _listAssembly.Add(isOriginsInvisible(partDoc)) 'записать true - да, невидимый; false - видимый
         dgvDataFromAssembly.Rows.Add("Все эскизы (2D и 3D) и объекты вспомогательной геометрии (плоскости, оси, точки) невидимы", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        _listAssembly.Add(findValueInPartParamListByName("d10", listOfParameters)) 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Размер Ø12", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        _listAssembly.Add(findValueInPartParamListByName("d0", listOfParameters)) 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Размер R10", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        _listAssembly.Add(findValueInPartParamListByName("d3", listOfParameters)) 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Размер линейный (на виде спереди)", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        _listAssembly.Add(findValueInPartParamListByName("d1", listOfParameters)) 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Размер линейный", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        _listAssembly.Add(findValueInPartParamListByName("d26", listOfParameters)) 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Фаска", _listAssembly.Last) 'записать value в dgvAssembly
 
         _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Резьба (в отверстии)", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        _listAssembly.Add(findValueInPartParamListByName("d18", listOfParameters)) 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Размер линейный (на виде сверху)", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        _listAssembly.Add(findValueInPartParamListByName("d5", listOfParameters)) 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Размер линейный (на виде слева, ширина)", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        _listAssembly.Add(findValueInPartParamListByName("d2", listOfParameters)) 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Размер линейный (на виде слева, высота)", _listAssembly.Last) 'записать value в dgvAssembly
 
         _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
@@ -389,6 +490,9 @@ Public Class Form1
     End Sub
 
     Private Sub getPart002(ByVal partDoc As Document)
+        Dim listOfParameters As New List(Of PartParameter)()  'получить список параметров документа
+        listOfParameters = getParametersFromPart(partDoc)
+
         ' Get the PropertySets object.
         Dim oPropSets As PropertySets = partDoc.PropertySets
 
@@ -411,16 +515,29 @@ Public Class Form1
         _listAssembly.Add(oPropSetDTP.Item("Material").Value) 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Присвоение представления", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        Dim filespec As String = partDoc.File.FullFileName 'получить полное имя фаила
+        Dim fs, f
+        fs = CreateObject("Scripting.FileSystemObject")
+        f = fs.GetFile(filespec)
+        _listAssembly.Add("Создан: " & f.DateCreated.ToString & " Изменен: " & f.DateLastModified.ToString) 'дата создания и дата изменения
         dgvDataFromAssembly.Rows.Add("Проверка даты создания (изменения) файла", _listAssembly.Last) 'записать value в dgvAssembly
 
         _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Деталь твердотельная (не поверхности)", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        Dim countOfSolidBody As Integer = 0
+        Dim oCompDef As ComponentDefinition = partDoc.ComponentDefinition
+        For Each SurfaceBody In oCompDef.SurfaceBodies
+            countOfSolidBody += 1
+        Next
+        If countOfSolidBody = 1 Then
+            _listAssembly.Add(True) 'true - да, из одного
+        Else
+            _listAssembly.Add(False) 'false - нет, не из одного
+        End If
         dgvDataFromAssembly.Rows.Add("Деталь состоит из одного твердого тела", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        _listAssembly.Add(isOriginsInvisible(partDoc)) 'записать true - да, невидимый; false - видимый
         dgvDataFromAssembly.Rows.Add("Все эскизы (2D и 3D) и объекты вспомогательной геометрии (плоскости, оси, точки) невидимы", _listAssembly.Last) 'записать value в dgvAssembly
 
         _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
@@ -461,6 +578,9 @@ Public Class Form1
     End Sub
 
     Private Sub getPart003(ByVal partDoc As Document)
+        Dim listOfParameters As New List(Of PartParameter)()  'получить список параметров документа
+        listOfParameters = getParametersFromPart(partDoc)
+
         ' Get the PropertySets object.
         Dim oPropSets As PropertySets = partDoc.PropertySets
 
@@ -483,16 +603,29 @@ Public Class Form1
         _listAssembly.Add(oPropSetDTP.Item("Material").Value) 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Присвоение представления", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        Dim filespec As String = partDoc.File.FullFileName 'получить полное имя фаила
+        Dim fs, f
+        fs = CreateObject("Scripting.FileSystemObject")
+        f = fs.GetFile(filespec)
+        _listAssembly.Add("Создан: " & f.DateCreated.ToString & " Изменен: " & f.DateLastModified.ToString) 'дата создания и дата изменения
         dgvDataFromAssembly.Rows.Add("Проверка даты создания (изменения) файла", _listAssembly.Last) 'записать value в dgvAssembly
 
         _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Деталь твердотельная (не поверхности)", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        Dim countOfSolidBody As Integer = 0
+        Dim oCompDef As ComponentDefinition = partDoc.ComponentDefinition
+        For Each SurfaceBody In oCompDef.SurfaceBodies
+            countOfSolidBody += 1
+        Next
+        If countOfSolidBody = 1 Then
+            _listAssembly.Add(True) 'true - да, из одного
+        Else
+            _listAssembly.Add(False) 'false - нет, не из одного
+        End If
         dgvDataFromAssembly.Rows.Add("Деталь состоит из одного твердого тела", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        _listAssembly.Add(isOriginsInvisible(partDoc)) 'записать true - да, невидимый; false - видимый
         dgvDataFromAssembly.Rows.Add("Все эскизы (2D и 3D) и объекты вспомогательной геометрии (плоскости, оси, точки) невидимы", _listAssembly.Last) 'записать value в dgvAssembly
 
         _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
@@ -563,6 +696,9 @@ Public Class Form1
     End Sub
 
     Private Sub getPart004(ByVal partDoc As Document)
+        Dim listOfParameters As New List(Of PartParameter)()  'получить список параметров документа
+        listOfParameters = getParametersFromPart(partDoc)
+
         ' Get the PropertySets object.
         Dim oPropSets As PropertySets = partDoc.PropertySets
 
@@ -585,16 +721,29 @@ Public Class Form1
         _listAssembly.Add(oPropSetDTP.Item("Material").Value) 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Присвоение представления", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        Dim filespec As String = partDoc.File.FullFileName 'получить полное имя фаила
+        Dim fs, f
+        fs = CreateObject("Scripting.FileSystemObject")
+        f = fs.GetFile(filespec)
+        _listAssembly.Add("Создан: " & f.DateCreated.ToString & " Изменен: " & f.DateLastModified.ToString) 'дата создания и дата изменения
         dgvDataFromAssembly.Rows.Add("Проверка даты создания (изменения) файла", _listAssembly.Last) 'записать value в dgvAssembly
 
         _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Деталь твердотельная (не поверхности)", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        Dim countOfSolidBody As Integer = 0
+        Dim oCompDef As ComponentDefinition = partDoc.ComponentDefinition
+        For Each SurfaceBody In oCompDef.SurfaceBodies
+            countOfSolidBody += 1
+        Next
+        If countOfSolidBody = 1 Then
+            _listAssembly.Add(True) 'true - да, из одного
+        Else
+            _listAssembly.Add(False) 'false - нет, не из одного
+        End If
         dgvDataFromAssembly.Rows.Add("Деталь состоит из одного твердого тела", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        _listAssembly.Add(isOriginsInvisible(partDoc)) 'записать true - да, невидимый; false - видимый
         dgvDataFromAssembly.Rows.Add("Все эскизы (2D и 3D) и объекты вспомогательной геометрии (плоскости, оси, точки) невидимы", _listAssembly.Last) 'записать value в dgvAssembly
 
         _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
@@ -611,6 +760,9 @@ Public Class Form1
     End Sub
 
     Private Sub getPart005(ByVal partDoc As Document)
+        Dim listOfParameters As New List(Of PartParameter)()  'получить список параметров документа
+        listOfParameters = getParametersFromPart(partDoc)
+
         ' Get the PropertySets object.
         Dim oPropSets As PropertySets = partDoc.PropertySets
 
@@ -633,16 +785,29 @@ Public Class Form1
         _listAssembly.Add(oPropSetDTP.Item("Material").Value) 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Присвоение представления", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        Dim filespec As String = partDoc.File.FullFileName 'получить полное имя фаила
+        Dim fs, f
+        fs = CreateObject("Scripting.FileSystemObject")
+        f = fs.GetFile(filespec)
+        _listAssembly.Add("Создан: " & f.DateCreated.ToString & " Изменен: " & f.DateLastModified.ToString) 'дата создания и дата изменения
         dgvDataFromAssembly.Rows.Add("Проверка даты создания (изменения) файла", _listAssembly.Last) 'записать value в dgvAssembly
 
         _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Деталь твердотельная (не поверхности)", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        Dim countOfSolidBody As Integer = 0
+        Dim oCompDef As ComponentDefinition = partDoc.ComponentDefinition
+        For Each SurfaceBody In oCompDef.SurfaceBodies
+            countOfSolidBody += 1
+        Next
+        If countOfSolidBody = 1 Then
+            _listAssembly.Add(True) 'true - да, из одного
+        Else
+            _listAssembly.Add(False) 'false - нет, не из одного
+        End If
         dgvDataFromAssembly.Rows.Add("Деталь состоит из одного твердого тела", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        _listAssembly.Add(isOriginsInvisible(partDoc)) 'записать true - да, невидимый; false - видимый
         dgvDataFromAssembly.Rows.Add("Все эскизы (2D и 3D) и объекты вспомогательной геометрии (плоскости, оси, точки) невидимы", _listAssembly.Last) 'записать value в dgvAssembly
 
         _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
@@ -665,6 +830,9 @@ Public Class Form1
     End Sub
 
     Private Sub getPart006(ByVal partDoc As Document)
+        Dim listOfParameters As New List(Of PartParameter)()  'получить список параметров документа
+        listOfParameters = getParametersFromPart(partDoc)
+
         ' Get the PropertySets object.
         Dim oPropSets As PropertySets = partDoc.PropertySets
 
@@ -687,16 +855,29 @@ Public Class Form1
         _listAssembly.Add(oPropSetDTP.Item("Material").Value) 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Присвоение представления", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        Dim filespec As String = partDoc.File.FullFileName 'получить полное имя фаила
+        Dim fs, f
+        fs = CreateObject("Scripting.FileSystemObject")
+        f = fs.GetFile(filespec)
+        _listAssembly.Add("Создан: " & f.DateCreated.ToString & " Изменен: " & f.DateLastModified.ToString) 'дата создания и дата изменения
         dgvDataFromAssembly.Rows.Add("Проверка даты создания (изменения) файла", _listAssembly.Last) 'записать value в dgvAssembly
 
         _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Деталь твердотельная (не поверхности)", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        Dim countOfSolidBody As Integer = 0
+        Dim oCompDef As ComponentDefinition = partDoc.ComponentDefinition
+        For Each SurfaceBody In oCompDef.SurfaceBodies
+            countOfSolidBody += 1
+        Next
+        If countOfSolidBody = 1 Then
+            _listAssembly.Add(True) 'true - да, из одного
+        Else
+            _listAssembly.Add(False) 'false - нет, не из одного
+        End If
         dgvDataFromAssembly.Rows.Add("Деталь состоит из одного твердого тела", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        _listAssembly.Add(isOriginsInvisible(partDoc)) 'записать true - да, невидимый; false - видимый
         dgvDataFromAssembly.Rows.Add("Все эскизы (2D и 3D) и объекты вспомогательной геометрии (плоскости, оси, точки) невидимы", _listAssembly.Last) 'записать value в dgvAssembly
 
         _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
@@ -782,6 +963,9 @@ Public Class Form1
     End Sub
 
     Private Sub getPart007(ByVal partDoc As Document)
+        Dim listOfParameters As New List(Of PartParameter)()  'получить список параметров документа
+        listOfParameters = getParametersFromPart(partDoc)
+
         ' Get the PropertySets object.
         Dim oPropSets As PropertySets = partDoc.PropertySets
 
@@ -804,16 +988,29 @@ Public Class Form1
         _listAssembly.Add(oPropSetDTP.Item("Material").Value) 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Присвоение представления", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        Dim filespec As String = partDoc.File.FullFileName 'получить полное имя фаила
+        Dim fs, f
+        fs = CreateObject("Scripting.FileSystemObject")
+        f = fs.GetFile(filespec)
+        _listAssembly.Add("Создан: " & f.DateCreated.ToString & " Изменен: " & f.DateLastModified.ToString) 'дата создания и дата изменения
         dgvDataFromAssembly.Rows.Add("Проверка даты создания (изменения) файла", _listAssembly.Last) 'записать value в dgvAssembly
 
         _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Деталь твердотельная (не поверхности)", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        Dim countOfSolidBody As Integer = 0
+        Dim oCompDef As ComponentDefinition = partDoc.ComponentDefinition
+        For Each SurfaceBody In oCompDef.SurfaceBodies
+            countOfSolidBody += 1
+        Next
+        If countOfSolidBody = 1 Then
+            _listAssembly.Add(True) 'true - да, из одного
+        Else
+            _listAssembly.Add(False) 'false - нет, не из одного
+        End If
         dgvDataFromAssembly.Rows.Add("Деталь состоит из одного твердого тела", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        _listAssembly.Add(isOriginsInvisible(partDoc)) 'записать true - да, невидимый; false - видимый
         dgvDataFromAssembly.Rows.Add("Все эскизы (2D и 3D) и объекты вспомогательной геометрии (плоскости, оси, точки) невидимы", _listAssembly.Last) 'записать value в dgvAssembly
 
         _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
@@ -1051,19 +1248,3 @@ Public Class Form1
         dgvDataFromAssembly.Rows.Add("Заполнение основной надписи", _listAssembly.Last) 'записать value в dgvAssembly
     End Sub
 End Class
-
-''РАЗМЕСТИТЬ функция: показать параметры детали (доступ к таблице параметров)
-''РАЗМЕСТИТЬ ShowParameters()
-'Public Sub ShowParameters()
-'    Dim oDoc As Document = _invApplication.ActiveDocument
-'    Dim allParams As Parameters = oDoc.ComponentDefinition.Parameters
-
-'    If allParams.Count > 0 Then
-'        Dim result As String = ""
-'        For Each param As Parameter In allParams
-'            result &= "Name: " & param.Name & vbCrLf
-'            result &= "_Value(double): " & param._Value.ToString & vbCrLf
-'        Next
-'        MsgBox(result)
-'    End If
-'End Sub
