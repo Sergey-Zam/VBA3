@@ -10,6 +10,7 @@ Public Class Form1
     End Structure
 
     'глобальные переменные
+    Dim _loadingForm As New LoadingForm() 'загрузочная форма
     Dim _invApplication As Application = Nothing 'приложение Inventor
     Dim _openFileDialog As New OpenFileDialog 'диалог выбора файла
     Dim _conn As OleDb.OleDbConnection 'подключение к источнику данных
@@ -51,8 +52,6 @@ Public Class Form1
 
     'функция вызывается по нажатию кнопки "Импорт данных из Excel (*.xlsx, *.xls)"
     Private Sub btnImportFromExcel_Click(sender As Object, e As EventArgs) Handles btnGetDataFromExcel.Click
-        'здесь производится выбор файла эксель с критериями, и его содержимое загружается в _listExcel и dgvDataFromExcel
-
         'выбрать файл excel
         Dim fullName As String = ""
         Try
@@ -71,6 +70,8 @@ Public Class Form1
 
         'если получен адрес (не пустой и не Nothing)
         If (Not String.IsNullOrEmpty(fullName)) Then
+            _loadingForm.Show() ' долгий процесс - показать загрузочную форму
+
             Dim exl As New Excel.Application
             Dim exlSheet As Excel.Worksheet
 
@@ -111,6 +112,8 @@ Public Class Form1
             Next
 
             lblCountOfExcel.Text = _listExcel.Count
+
+            _loadingForm.Hide() ' закрыть загрузочную форму
         End If
     End Sub
 
@@ -134,6 +137,7 @@ Public Class Form1
 
         'если получен адрес (не пустой и не Nothing)
         If (Not String.IsNullOrEmpty(fullName)) Then
+            _loadingForm.Show() ' долгий процесс - показать загрузочную форму
             'открыть существующий документ сборки по указанному пути
             'переменная документа сборки, инициализировать
             Dim asmDoc As Document = _invApplication.Documents.Open(fullName)
@@ -218,6 +222,8 @@ Public Class Form1
             getDrawing007(drawing007Doc)
 
             lblCountOfAssembly.Text = _listAssembly.Count
+
+            _loadingForm.Hide() ' закрыть загрузочную форму
         End If
     End Sub
 
@@ -389,7 +395,9 @@ Public Class Form1
 
         For Each elem As PartParameter In list
             If elem.name = name Then
-                value = elem.value
+                'взять значение по модулю
+                elem.value = Math.Abs(CDec(elem.value))
+                value = elem.value.ToString
                 Exit For
             End If
         Next
@@ -431,7 +439,10 @@ Public Class Form1
         _listAssembly.Add("Создан: " & f.DateCreated.ToString & " Изменен: " & f.DateLastModified.ToString) 'дата создания и дата изменения
         dgvDataFromAssembly.Rows.Add("Проверка даты создания (изменения) файла", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        Dim SrfBods As SurfaceBodies = partDoc.ComponentDefinition.SurfaceBodies
+        For Each SrfBod In SrfBods
+            _listAssembly.Add(SrfBod.IsSolid) 'доб. value в _listAssembly
+        Next
         dgvDataFromAssembly.Rows.Add("Деталь твердотельная (не поверхности)", _listAssembly.Last) 'записать value в dgvAssembly
 
         Dim countOfSolidBody As Integer = 0
@@ -522,7 +533,10 @@ Public Class Form1
         _listAssembly.Add("Создан: " & f.DateCreated.ToString & " Изменен: " & f.DateLastModified.ToString) 'дата создания и дата изменения
         dgvDataFromAssembly.Rows.Add("Проверка даты создания (изменения) файла", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        Dim SrfBods As SurfaceBodies = partDoc.ComponentDefinition.SurfaceBodies
+        For Each SrfBod In SrfBods
+            _listAssembly.Add(SrfBod.IsSolid) 'доб. value в _listAssembly
+        Next
         dgvDataFromAssembly.Rows.Add("Деталь твердотельная (не поверхности)", _listAssembly.Last) 'записать value в dgvAssembly
 
         Dim countOfSolidBody As Integer = 0
@@ -540,34 +554,34 @@ Public Class Form1
         _listAssembly.Add(isOriginsInvisible(partDoc)) 'записать true - да, невидимый; false - видимый
         dgvDataFromAssembly.Rows.Add("Все эскизы (2D и 3D) и объекты вспомогательной геометрии (плоскости, оси, точки) невидимы", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        _listAssembly.Add(findValueInPartParamListByName("d0", listOfParameters)) 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Размер Ø68", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        _listAssembly.Add(findValueInPartParamListByName("d1", listOfParameters)) 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Размер линейный", _listAssembly.Last) 'записать value в dgvAssembly
 
         _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Резьба (в отверстии)", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        _listAssembly.Add(findValueInPartParamListByName("d20", listOfParameters)) 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Фаска", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        _listAssembly.Add(findValueInPartParamListByName("d20", listOfParameters)) 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Фаска", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        _listAssembly.Add(findValueInPartParamListByName("d20", listOfParameters)) 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Фаска", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        _listAssembly.Add(findValueInPartParamListByName("d20", listOfParameters)) 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Фаска", _listAssembly.Last) 'записать value в dgvAssembly
 
         _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Отверстие (строится инструментом отверстие)", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        _listAssembly.Add(findValueInPartParamListByName("d10", listOfParameters)) 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Отверстие Ø6", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        _listAssembly.Add(findValueInPartParamListByName("d15", listOfParameters)) 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Отверстие глубина 5", _listAssembly.Last) 'записать value в dgvAssembly
 
         _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
@@ -610,7 +624,10 @@ Public Class Form1
         _listAssembly.Add("Создан: " & f.DateCreated.ToString & " Изменен: " & f.DateLastModified.ToString) 'дата создания и дата изменения
         dgvDataFromAssembly.Rows.Add("Проверка даты создания (изменения) файла", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        Dim SrfBods As SurfaceBodies = partDoc.ComponentDefinition.SurfaceBodies
+        For Each SrfBod In SrfBods
+            _listAssembly.Add(SrfBod.IsSolid) 'доб. value в _listAssembly
+        Next
         dgvDataFromAssembly.Rows.Add("Деталь твердотельная (не поверхности)", _listAssembly.Last) 'записать value в dgvAssembly
 
         Dim countOfSolidBody As Integer = 0
@@ -628,55 +645,55 @@ Public Class Form1
         _listAssembly.Add(isOriginsInvisible(partDoc)) 'записать true - да, невидимый; false - видимый
         dgvDataFromAssembly.Rows.Add("Все эскизы (2D и 3D) и объекты вспомогательной геометрии (плоскости, оси, точки) невидимы", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        _listAssembly.Add(findValueInPartParamListByName("d4", listOfParameters)) 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Размер линейный", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        _listAssembly.Add(findValueInPartParamListByName("d2", listOfParameters)) 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Размер Ø48", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        _listAssembly.Add(findValueInPartParamListByName("d1", listOfParameters)) 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Размер Ø30", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        _listAssembly.Add(findValueInPartParamListByName("d3", listOfParameters)) 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Размер линейный", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        _listAssembly.Add(findValueInPartParamListByName("d26", listOfParameters)) 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Размер R5", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        _listAssembly.Add(findValueInPartParamListByName("d11", listOfParameters)) 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Размер линейный (на виде спереди)", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        _listAssembly.Add(findValueInPartParamListByName("d9", listOfParameters)) 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Размер линейный (на виде спереди)", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        _listAssembly.Add(findValueInPartParamListByName("d6", listOfParameters)) 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Размер линейный (на виде спереди)", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        _listAssembly.Add(findValueInPartParamListByName("d19", listOfParameters)) 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Размер линейный (на виде спереди)", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        _listAssembly.Add(findValueInPartParamListByName("d14", listOfParameters)) 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Размер Ø36", _listAssembly.Last) 'записать value в dgvAssembly
 
         _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Резьба наружная", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        _listAssembly.Add(findValueInPartParamListByName("d24", listOfParameters)) 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Резьба наружная", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        _listAssembly.Add(findValueInPartParamListByName("d27", listOfParameters)) 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Фаска", _listAssembly.Last) 'записать value в dgvAssembly
 
         _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Размер линейный (на виде слева)", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        _listAssembly.Add(findValueInPartParamListByName("d7", listOfParameters)) 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Размер Ø20", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        _listAssembly.Add(findValueInPartParamListByName("d8", listOfParameters)) 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Отверстие Ø8", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        _listAssembly.Add(findValueInPartParamListByName("d21", listOfParameters)) 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Размер □18", _listAssembly.Last) 'записать value в dgvAssembly
 
         _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
@@ -728,7 +745,10 @@ Public Class Form1
         _listAssembly.Add("Создан: " & f.DateCreated.ToString & " Изменен: " & f.DateLastModified.ToString) 'дата создания и дата изменения
         dgvDataFromAssembly.Rows.Add("Проверка даты создания (изменения) файла", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        Dim SrfBods As SurfaceBodies = partDoc.ComponentDefinition.SurfaceBodies
+        For Each SrfBod In SrfBods
+            _listAssembly.Add(SrfBod.IsSolid) 'доб. value в _listAssembly
+        Next
         dgvDataFromAssembly.Rows.Add("Деталь твердотельная (не поверхности)", _listAssembly.Last) 'записать value в dgvAssembly
 
         Dim countOfSolidBody As Integer = 0
@@ -746,16 +766,16 @@ Public Class Form1
         _listAssembly.Add(isOriginsInvisible(partDoc)) 'записать true - да, невидимый; false - видимый
         dgvDataFromAssembly.Rows.Add("Все эскизы (2D и 3D) и объекты вспомогательной геометрии (плоскости, оси, точки) невидимы", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        _listAssembly.Add(findValueInPartParamListByName("d0", listOfParameters)) 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Размер Ø12", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        _listAssembly.Add(findValueInPartParamListByName("d1", listOfParameters)) 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Размер линейный", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        _listAssembly.Add(findValueInPartParamListByName("d3", listOfParameters)) 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Фаска", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        _listAssembly.Add(findValueInPartParamListByName("d3", listOfParameters)) 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Фаска", _listAssembly.Last) 'записать value в dgvAssembly
     End Sub
 
@@ -792,7 +812,10 @@ Public Class Form1
         _listAssembly.Add("Создан: " & f.DateCreated.ToString & " Изменен: " & f.DateLastModified.ToString) 'дата создания и дата изменения
         dgvDataFromAssembly.Rows.Add("Проверка даты создания (изменения) файла", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        Dim SrfBods As SurfaceBodies = partDoc.ComponentDefinition.SurfaceBodies
+        For Each SrfBod In SrfBods
+            _listAssembly.Add(SrfBod.IsSolid) 'доб. value в _listAssembly
+        Next
         dgvDataFromAssembly.Rows.Add("Деталь твердотельная (не поверхности)", _listAssembly.Last) 'записать value в dgvAssembly
 
         Dim countOfSolidBody As Integer = 0
@@ -810,19 +833,19 @@ Public Class Form1
         _listAssembly.Add(isOriginsInvisible(partDoc)) 'записать true - да, невидимый; false - видимый
         dgvDataFromAssembly.Rows.Add("Все эскизы (2D и 3D) и объекты вспомогательной геометрии (плоскости, оси, точки) невидимы", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        _listAssembly.Add(findValueInPartParamListByName("d0", listOfParameters)) 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Размер Ø25", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        _listAssembly.Add(findValueInPartParamListByName("d1", listOfParameters)) 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Размер Ø12,5", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        _listAssembly.Add(findValueInPartParamListByName("d2", listOfParameters)) 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Размер линейный", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        _listAssembly.Add(findValueInPartParamListByName("d4", listOfParameters)) 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Фаска", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        _listAssembly.Add(findValueInPartParamListByName("d4", listOfParameters)) 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Фаска", _listAssembly.Last) 'записать value в dgvAssembly
 
         _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
@@ -862,7 +885,10 @@ Public Class Form1
         _listAssembly.Add("Создан: " & f.DateCreated.ToString & " Изменен: " & f.DateLastModified.ToString) 'дата создания и дата изменения
         dgvDataFromAssembly.Rows.Add("Проверка даты создания (изменения) файла", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        Dim SrfBods As SurfaceBodies = partDoc.ComponentDefinition.SurfaceBodies
+        For Each SrfBod In SrfBods
+            _listAssembly.Add(SrfBod.IsSolid) 'доб. value в _listAssembly
+        Next
         dgvDataFromAssembly.Rows.Add("Деталь твердотельная (не поверхности)", _listAssembly.Last) 'записать value в dgvAssembly
 
         Dim countOfSolidBody As Integer = 0
@@ -880,82 +906,82 @@ Public Class Form1
         _listAssembly.Add(isOriginsInvisible(partDoc)) 'записать true - да, невидимый; false - видимый
         dgvDataFromAssembly.Rows.Add("Все эскизы (2D и 3D) и объекты вспомогательной геометрии (плоскости, оси, точки) невидимы", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        _listAssembly.Add(findValueInPartParamListByName("d14", listOfParameters)) 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Размер Ø64", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        _listAssembly.Add(findValueInPartParamListByName("d15", listOfParameters)) 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Размер Ø60", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        _listAssembly.Add(findValueInPartParamListByName("d2", listOfParameters)) 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Размер линейный (на виде спереди)", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        _listAssembly.Add(findValueInPartParamListByName("d3", listOfParameters)) 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Размер линейный (на виде спереди)", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        _listAssembly.Add(findValueInPartParamListByName("d4", listOfParameters)) 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Размер линейный (на виде спереди)", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        _listAssembly.Add(findValueInPartParamListByName("d5", listOfParameters)) 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Размер линейный (на виде спереди)", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        _listAssembly.Add(findValueInPartParamListByName("d7", listOfParameters)) 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Размер Ø36", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        _listAssembly.Add(findValueInPartParamListByName("d14", listOfParameters)) 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Размер Ø64 (на виде слева)", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        _listAssembly.Add(findValueInPartParamListByName("d6", listOfParameters)) 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Размер Ø21", _listAssembly.Last) 'записать value в dgvAssembly
 
         _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Резьба (в отверстии)", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        _listAssembly.Add(findValueInPartParamListByName("d20", listOfParameters)) 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Размер Ø50", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        _listAssembly.Add(findValueInPartParamListByName("d13", listOfParameters)) 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Размер линейный (на виде спереди)", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        _listAssembly.Add(findValueInPartParamListByName("d19", listOfParameters)) 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Размер R0,4", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        _listAssembly.Add(findValueInPartParamListByName("d37", listOfParameters)) 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Размер линейный (проточка)", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        _listAssembly.Add(findValueInPartParamListByName("d18", listOfParameters)) 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Размер линейный (проточка)", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        _listAssembly.Add(findValueInPartParamListByName("d16", listOfParameters)) 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Размер угловой (проточка)", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        _listAssembly.Add(findValueInPartParamListByName("d11", listOfParameters)) 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Размер Ø38", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        _listAssembly.Add(findValueInPartParamListByName("d12", listOfParameters)) 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Размер линейный (на виде спереди)", _listAssembly.Last) 'записать value в dgvAssembly
 
         _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Размер линейный (на виде спереди)", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        _listAssembly.Add(findValueInPartParamListByName("d43", listOfParameters)) 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Фаска", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        _listAssembly.Add(findValueInPartParamListByName("d40", listOfParameters)) 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Фаска", _listAssembly.Last) 'записать value в dgvAssembly
 
         _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Отверстие (строится инструментом отверстие)", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        _listAssembly.Add(findValueInPartParamListByName("d30", listOfParameters)) 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Отверстие Ø6", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        _listAssembly.Add(findValueInPartParamListByName("d35", listOfParameters)) 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Отверстие глубина 5", _listAssembly.Last) 'записать value в dgvAssembly
 
         _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Отверстие 4 экземпляра (круговым массивом)", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        _listAssembly.Add(findValueInPartParamListByName("d29", listOfParameters)) 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Размер линейный (на виде спереди, положение отверстий)", _listAssembly.Last) 'записать value в dgvAssembly
 
         _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
@@ -995,7 +1021,10 @@ Public Class Form1
         _listAssembly.Add("Создан: " & f.DateCreated.ToString & " Изменен: " & f.DateLastModified.ToString) 'дата создания и дата изменения
         dgvDataFromAssembly.Rows.Add("Проверка даты создания (изменения) файла", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        Dim SrfBods As SurfaceBodies = partDoc.ComponentDefinition.SurfaceBodies
+        For Each SrfBod In SrfBods
+            _listAssembly.Add(SrfBod.IsSolid) 'доб. value в _listAssembly
+        Next
         dgvDataFromAssembly.Rows.Add("Деталь твердотельная (не поверхности)", _listAssembly.Last) 'записать value в dgvAssembly
 
         Dim countOfSolidBody As Integer = 0
@@ -1013,52 +1042,52 @@ Public Class Form1
         _listAssembly.Add(isOriginsInvisible(partDoc)) 'записать true - да, невидимый; false - видимый
         dgvDataFromAssembly.Rows.Add("Все эскизы (2D и 3D) и объекты вспомогательной геометрии (плоскости, оси, точки) невидимы", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        _listAssembly.Add(findValueInPartParamListByName("d1", listOfParameters)) 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Размер линейный", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        _listAssembly.Add(findValueInPartParamListByName("d5", listOfParameters)) 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Размер Ø20", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        _listAssembly.Add(findValueInPartParamListByName("d6", listOfParameters)) 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Размер Ø33", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        _listAssembly.Add(findValueInPartParamListByName("d2", listOfParameters)) 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Размер линейный", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        _listAssembly.Add(findValueInPartParamListByName("d3", listOfParameters)) 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Размер линейный", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        _listAssembly.Add(findValueInPartParamListByName("d4", listOfParameters)) 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Размер линейный", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        _listAssembly.Add(findValueInPartParamListByName("d9", listOfParameters)) 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Размер Ø7,7", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        _listAssembly.Add(findValueInPartParamListByName("d11", listOfParameters)) 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Размер линейный (проточка)", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        _listAssembly.Add(findValueInPartParamListByName("d10", listOfParameters)) 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Размер линейный (проточка)", _listAssembly.Last) 'записать value в dgvAssembly
 
         _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Размер угловой (проточка)", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        _listAssembly.Add(findValueInPartParamListByName("d12", listOfParameters)) 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Размер R0,8", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        _listAssembly.Add(findValueInPartParamListByName("d12", listOfParameters)) 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Размер R0,8", _listAssembly.Last) 'записать value в dgvAssembly
 
         _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Резьба наружная", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        _listAssembly.Add(findValueInPartParamListByName("d18", listOfParameters)) 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Размер □18", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        _listAssembly.Add(findValueInPartParamListByName("d13", listOfParameters)) 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Фаска", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        _listAssembly.Add(findValueInPartParamListByName("d13", listOfParameters)) 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Фаска", _listAssembly.Last) 'записать value в dgvAssembly
 
         _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
@@ -1069,9 +1098,10 @@ Public Class Form1
     End Sub
 
     Private Sub getAsm(ByVal asmDoc As Document)
+        Dim occ As ComponentOccurrence
+
         'Деталь 05.01.003 Корпус закреплена (0 степеней свободы)
         Dim result As String = "EMPTY VALUE"
-        Dim occ As ComponentOccurrence
         For Each occ In asmDoc.ComponentDefinition.Occurrences 'occ - свойства part document (1..n) В assembly, их (документов) перебор
             'если деталь "05.01.003"
             If (occ.Name = "05.01.003" & ":1") Then
