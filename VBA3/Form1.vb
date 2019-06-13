@@ -10,7 +10,6 @@ Public Class Form1
     End Structure
 
     'глобальные переменные
-    Dim _loadingForm As New LoadingForm() 'загрузочная форма
     Dim _invApplication As Application = Nothing 'приложение Inventor
     Dim _openFileDialog As New OpenFileDialog 'диалог выбора файла
     Dim _conn As OleDb.OleDbConnection 'подключение к источнику данных
@@ -23,6 +22,26 @@ Public Class Form1
         InitializeComponent()
 
         'ниже размещается любой инициализирующий код.
+
+        'добавить столбцы к обоим dgv
+        dgvDataFromExcel.ColumnCount = 2
+        dgvDataFromAssembly.ColumnCount = 2
+        'и задать им ширину
+        dgvDataFromExcel.Columns(0).Width = 300
+        dgvDataFromExcel.Columns(1).Width = 100
+        dgvDataFromAssembly.Columns(0).Width = 300
+        dgvDataFromAssembly.Columns(1).Width = 100
+
+        'настроить сообщение "загрузка, подождите"
+        lblLoading.Visible = False
+        lblLoading.Top = (Me.ClientSize.Height / 2) - (lblLoading.Height / 2)
+        lblLoading.Left = (Me.ClientSize.Width / 2) - (lblLoading.Width / 2)
+    End Sub
+
+    'функция запускается, как только форма загружена.
+    Private Sub Form1_Shown(sender As Object, e As EventArgs) Handles MyBase.Shown
+        lblLoading.Visible = True ' долгий процесс - показать сообщение загрузки
+
         'найти текущий сеанс Inventor (если Inventor не запущен - запустить)
         Try
             Try
@@ -40,14 +59,7 @@ Public Class Form1
             MsgBox(ex.ToString())
         End Try
 
-        'добавить столбцы к обоим dgv
-        dgvDataFromExcel.ColumnCount = 2
-        dgvDataFromAssembly.ColumnCount = 2
-        'и задать им ширину
-        dgvDataFromExcel.Columns(0).Width = 300
-        dgvDataFromExcel.Columns(1).Width = 100
-        dgvDataFromAssembly.Columns(0).Width = 300
-        dgvDataFromAssembly.Columns(1).Width = 100
+        lblLoading.Visible = False 'закрыть сообщение загрузки
     End Sub
 
     'функция вызывается по нажатию кнопки "Импорт данных из Excel (*.xlsx, *.xls)"
@@ -70,7 +82,7 @@ Public Class Form1
 
         'если получен адрес (не пустой и не Nothing)
         If (Not String.IsNullOrEmpty(fullName)) Then
-            _loadingForm.Show() ' долгий процесс - показать загрузочную форму
+            lblLoading.Visible = True ' долгий процесс - показать сообщение загрузки
 
             Dim exl As New Excel.Application
             Dim exlSheet As Excel.Worksheet
@@ -113,7 +125,7 @@ Public Class Form1
 
             lblCountOfExcel.Text = _listExcel.Count
 
-            _loadingForm.Hide() ' закрыть загрузочную форму
+            lblLoading.Visible = False 'закрыть сообщение загрузки
         End If
     End Sub
 
@@ -137,7 +149,8 @@ Public Class Form1
 
         'если получен адрес (не пустой и не Nothing)
         If (Not String.IsNullOrEmpty(fullName)) Then
-            _loadingForm.Show() ' долгий процесс - показать загрузочную форму
+            lblLoading.Visible = True ' долгий процесс - показать сообщение загрузки
+
             'открыть существующий документ сборки по указанному пути
             'переменная документа сборки, инициализировать
             Dim asmDoc As Document = _invApplication.Documents.Open(fullName)
@@ -223,7 +236,7 @@ Public Class Form1
 
             lblCountOfAssembly.Text = _listAssembly.Count
 
-            _loadingForm.Hide() ' закрыть загрузочную форму
+            lblLoading.Visible = False 'закрыть сообщение загрузки
         End If
     End Sub
 
@@ -396,7 +409,10 @@ Public Class Form1
         For Each elem As PartParameter In list
             If elem.name = name Then
                 'взять значение по модулю
-                elem.value = Math.Abs(CDec(elem.value))
+                If CDec(elem.value) < 0 Then
+                    elem.value = Math.Abs(CDec(elem.value))
+                End If
+
                 value = elem.value.ToString
                 Exit For
             End If
@@ -405,11 +421,8 @@ Public Class Form1
         Return value
     End Function
 
-    'Функции получения данных из деталей, сборки, чертежей
-    Private Sub getPart001(ByVal partDoc As Document)
-        Dim listOfParameters As New List(Of PartParameter)()  'получить список параметров документа
-        listOfParameters = getParametersFromPart(partDoc)
-
+    'вспомогательная функция: получение первых восьми одинаковых параметров для детали (объединение одинаковых параметров)
+    Private Sub getFirstSameParametersOfPart(ByVal partDoc As Document)
         ' Get the PropertySets object.
         Dim oPropSets As PropertySets = partDoc.PropertySets
 
@@ -459,6 +472,14 @@ Public Class Form1
 
         _listAssembly.Add(isOriginsInvisible(partDoc)) 'записать true - да, невидимый; false - видимый
         dgvDataFromAssembly.Rows.Add("Все эскизы (2D и 3D) и объекты вспомогательной геометрии (плоскости, оси, точки) невидимы", _listAssembly.Last) 'записать value в dgvAssembly
+    End Sub
+
+    'Функции получения данных из деталей, сборки, чертежей
+    Private Sub getPart001(ByVal partDoc As Document)
+        Dim listOfParameters As New List(Of PartParameter)()  'получить список параметров документа
+        listOfParameters = getParametersFromPart(partDoc)
+
+        getFirstSameParametersOfPart(partDoc)
 
         _listAssembly.Add(findValueInPartParamListByName("d10", listOfParameters)) 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Размер Ø12", _listAssembly.Last) 'записать value в dgvAssembly
@@ -504,55 +525,7 @@ Public Class Form1
         Dim listOfParameters As New List(Of PartParameter)()  'получить список параметров документа
         listOfParameters = getParametersFromPart(partDoc)
 
-        ' Get the PropertySets object.
-        Dim oPropSets As PropertySets = partDoc.PropertySets
-
-        ' Get the Inventor Summary Information property set.
-        'Dim oPropSetISI As PropertySet = oPropSets.Item("Inventor Summary Information")
-        ' Get the Inventor Document Summary Information property set.
-        'Dim oPropSetIDSI As PropertySet = oPropSets.Item("Inventor Document Summary Information")
-        ' Get the Design Tracking Properties property set.
-        Dim oPropSetDTP As PropertySet = oPropSets.Item("Design Tracking Properties")
-
-        _listAssembly.Add(oPropSetDTP.Item("Part Number").Value) 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Значение параметра Обозначение", _listAssembly.Last) 'записать value в dgvAssembly
-
-        _listAssembly.Add(oPropSetDTP.Item("Description").Value) 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Значение параметра Наименование", _listAssembly.Last) 'записать value в dgvAssembly
-
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Присвоение материала (с чертежа)", _listAssembly.Last) 'записать value в dgvAssembly
-
-        _listAssembly.Add(oPropSetDTP.Item("Material").Value) 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Присвоение представления", _listAssembly.Last) 'записать value в dgvAssembly
-
-        Dim filespec As String = partDoc.File.FullFileName 'получить полное имя фаила
-        Dim fs, f
-        fs = CreateObject("Scripting.FileSystemObject")
-        f = fs.GetFile(filespec)
-        _listAssembly.Add("Создан: " & f.DateCreated.ToString & " Изменен: " & f.DateLastModified.ToString) 'дата создания и дата изменения
-        dgvDataFromAssembly.Rows.Add("Проверка даты создания (изменения) файла", _listAssembly.Last) 'записать value в dgvAssembly
-
-        Dim SrfBods As SurfaceBodies = partDoc.ComponentDefinition.SurfaceBodies
-        For Each SrfBod In SrfBods
-            _listAssembly.Add(SrfBod.IsSolid) 'доб. value в _listAssembly
-        Next
-        dgvDataFromAssembly.Rows.Add("Деталь твердотельная (не поверхности)", _listAssembly.Last) 'записать value в dgvAssembly
-
-        Dim countOfSolidBody As Integer = 0
-        Dim oCompDef As ComponentDefinition = partDoc.ComponentDefinition
-        For Each SurfaceBody In oCompDef.SurfaceBodies
-            countOfSolidBody += 1
-        Next
-        If countOfSolidBody = 1 Then
-            _listAssembly.Add(True) 'true - да, из одного
-        Else
-            _listAssembly.Add(False) 'false - нет, не из одного
-        End If
-        dgvDataFromAssembly.Rows.Add("Деталь состоит из одного твердого тела", _listAssembly.Last) 'записать value в dgvAssembly
-
-        _listAssembly.Add(isOriginsInvisible(partDoc)) 'записать true - да, невидимый; false - видимый
-        dgvDataFromAssembly.Rows.Add("Все эскизы (2D и 3D) и объекты вспомогательной геометрии (плоскости, оси, точки) невидимы", _listAssembly.Last) 'записать value в dgvAssembly
+        getFirstSameParametersOfPart(partDoc)
 
         _listAssembly.Add(findValueInPartParamListByName("d0", listOfParameters)) 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Размер Ø68", _listAssembly.Last) 'записать value в dgvAssembly
@@ -595,55 +568,7 @@ Public Class Form1
         Dim listOfParameters As New List(Of PartParameter)()  'получить список параметров документа
         listOfParameters = getParametersFromPart(partDoc)
 
-        ' Get the PropertySets object.
-        Dim oPropSets As PropertySets = partDoc.PropertySets
-
-        ' Get the Inventor Summary Information property set.
-        'Dim oPropSetISI As PropertySet = oPropSets.Item("Inventor Summary Information")
-        ' Get the Inventor Document Summary Information property set.
-        'Dim oPropSetIDSI As PropertySet = oPropSets.Item("Inventor Document Summary Information")
-        ' Get the Design Tracking Properties property set.
-        Dim oPropSetDTP As PropertySet = oPropSets.Item("Design Tracking Properties")
-
-        _listAssembly.Add(oPropSetDTP.Item("Part Number").Value) 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Значение параметра Обозначение", _listAssembly.Last) 'записать value в dgvAssembly
-
-        _listAssembly.Add(oPropSetDTP.Item("Description").Value) 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Значение параметра Наименование", _listAssembly.Last) 'записать value в dgvAssembly
-
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Присвоение материала (с чертежа)", _listAssembly.Last) 'записать value в dgvAssembly
-
-        _listAssembly.Add(oPropSetDTP.Item("Material").Value) 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Присвоение представления", _listAssembly.Last) 'записать value в dgvAssembly
-
-        Dim filespec As String = partDoc.File.FullFileName 'получить полное имя фаила
-        Dim fs, f
-        fs = CreateObject("Scripting.FileSystemObject")
-        f = fs.GetFile(filespec)
-        _listAssembly.Add("Создан: " & f.DateCreated.ToString & " Изменен: " & f.DateLastModified.ToString) 'дата создания и дата изменения
-        dgvDataFromAssembly.Rows.Add("Проверка даты создания (изменения) файла", _listAssembly.Last) 'записать value в dgvAssembly
-
-        Dim SrfBods As SurfaceBodies = partDoc.ComponentDefinition.SurfaceBodies
-        For Each SrfBod In SrfBods
-            _listAssembly.Add(SrfBod.IsSolid) 'доб. value в _listAssembly
-        Next
-        dgvDataFromAssembly.Rows.Add("Деталь твердотельная (не поверхности)", _listAssembly.Last) 'записать value в dgvAssembly
-
-        Dim countOfSolidBody As Integer = 0
-        Dim oCompDef As ComponentDefinition = partDoc.ComponentDefinition
-        For Each SurfaceBody In oCompDef.SurfaceBodies
-            countOfSolidBody += 1
-        Next
-        If countOfSolidBody = 1 Then
-            _listAssembly.Add(True) 'true - да, из одного
-        Else
-            _listAssembly.Add(False) 'false - нет, не из одного
-        End If
-        dgvDataFromAssembly.Rows.Add("Деталь состоит из одного твердого тела", _listAssembly.Last) 'записать value в dgvAssembly
-
-        _listAssembly.Add(isOriginsInvisible(partDoc)) 'записать true - да, невидимый; false - видимый
-        dgvDataFromAssembly.Rows.Add("Все эскизы (2D и 3D) и объекты вспомогательной геометрии (плоскости, оси, точки) невидимы", _listAssembly.Last) 'записать value в dgvAssembly
+        getFirstSameParametersOfPart(partDoc)
 
         _listAssembly.Add(findValueInPartParamListByName("d4", listOfParameters)) 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Размер линейный", _listAssembly.Last) 'записать value в dgvAssembly
@@ -716,55 +641,7 @@ Public Class Form1
         Dim listOfParameters As New List(Of PartParameter)()  'получить список параметров документа
         listOfParameters = getParametersFromPart(partDoc)
 
-        ' Get the PropertySets object.
-        Dim oPropSets As PropertySets = partDoc.PropertySets
-
-        ' Get the Inventor Summary Information property set.
-        'Dim oPropSetISI As PropertySet = oPropSets.Item("Inventor Summary Information")
-        ' Get the Inventor Document Summary Information property set.
-        'Dim oPropSetIDSI As PropertySet = oPropSets.Item("Inventor Document Summary Information")
-        ' Get the Design Tracking Properties property set.
-        Dim oPropSetDTP As PropertySet = oPropSets.Item("Design Tracking Properties")
-
-        _listAssembly.Add(oPropSetDTP.Item("Part Number").Value) 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Значение параметра Обозначение", _listAssembly.Last) 'записать value в dgvAssembly
-
-        _listAssembly.Add(oPropSetDTP.Item("Description").Value) 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Значение параметра Наименование", _listAssembly.Last) 'записать value в dgvAssembly
-
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Присвоение материала (с чертежа)", _listAssembly.Last) 'записать value в dgvAssembly
-
-        _listAssembly.Add(oPropSetDTP.Item("Material").Value) 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Присвоение представления", _listAssembly.Last) 'записать value в dgvAssembly
-
-        Dim filespec As String = partDoc.File.FullFileName 'получить полное имя фаила
-        Dim fs, f
-        fs = CreateObject("Scripting.FileSystemObject")
-        f = fs.GetFile(filespec)
-        _listAssembly.Add("Создан: " & f.DateCreated.ToString & " Изменен: " & f.DateLastModified.ToString) 'дата создания и дата изменения
-        dgvDataFromAssembly.Rows.Add("Проверка даты создания (изменения) файла", _listAssembly.Last) 'записать value в dgvAssembly
-
-        Dim SrfBods As SurfaceBodies = partDoc.ComponentDefinition.SurfaceBodies
-        For Each SrfBod In SrfBods
-            _listAssembly.Add(SrfBod.IsSolid) 'доб. value в _listAssembly
-        Next
-        dgvDataFromAssembly.Rows.Add("Деталь твердотельная (не поверхности)", _listAssembly.Last) 'записать value в dgvAssembly
-
-        Dim countOfSolidBody As Integer = 0
-        Dim oCompDef As ComponentDefinition = partDoc.ComponentDefinition
-        For Each SurfaceBody In oCompDef.SurfaceBodies
-            countOfSolidBody += 1
-        Next
-        If countOfSolidBody = 1 Then
-            _listAssembly.Add(True) 'true - да, из одного
-        Else
-            _listAssembly.Add(False) 'false - нет, не из одного
-        End If
-        dgvDataFromAssembly.Rows.Add("Деталь состоит из одного твердого тела", _listAssembly.Last) 'записать value в dgvAssembly
-
-        _listAssembly.Add(isOriginsInvisible(partDoc)) 'записать true - да, невидимый; false - видимый
-        dgvDataFromAssembly.Rows.Add("Все эскизы (2D и 3D) и объекты вспомогательной геометрии (плоскости, оси, точки) невидимы", _listAssembly.Last) 'записать value в dgvAssembly
+        getFirstSameParametersOfPart(partDoc)
 
         _listAssembly.Add(findValueInPartParamListByName("d0", listOfParameters)) 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Размер Ø12", _listAssembly.Last) 'записать value в dgvAssembly
@@ -783,55 +660,7 @@ Public Class Form1
         Dim listOfParameters As New List(Of PartParameter)()  'получить список параметров документа
         listOfParameters = getParametersFromPart(partDoc)
 
-        ' Get the PropertySets object.
-        Dim oPropSets As PropertySets = partDoc.PropertySets
-
-        ' Get the Inventor Summary Information property set.
-        'Dim oPropSetISI As PropertySet = oPropSets.Item("Inventor Summary Information")
-        ' Get the Inventor Document Summary Information property set.
-        'Dim oPropSetIDSI As PropertySet = oPropSets.Item("Inventor Document Summary Information")
-        ' Get the Design Tracking Properties property set.
-        Dim oPropSetDTP As PropertySet = oPropSets.Item("Design Tracking Properties")
-
-        _listAssembly.Add(oPropSetDTP.Item("Part Number").Value) 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Значение параметра Обозначение", _listAssembly.Last) 'записать value в dgvAssembly
-
-        _listAssembly.Add(oPropSetDTP.Item("Description").Value) 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Значение параметра Наименование", _listAssembly.Last) 'записать value в dgvAssembly
-
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Присвоение материала (с чертежа)", _listAssembly.Last) 'записать value в dgvAssembly
-
-        _listAssembly.Add(oPropSetDTP.Item("Material").Value) 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Присвоение представления", _listAssembly.Last) 'записать value в dgvAssembly
-
-        Dim filespec As String = partDoc.File.FullFileName 'получить полное имя фаила
-        Dim fs, f
-        fs = CreateObject("Scripting.FileSystemObject")
-        f = fs.GetFile(filespec)
-        _listAssembly.Add("Создан: " & f.DateCreated.ToString & " Изменен: " & f.DateLastModified.ToString) 'дата создания и дата изменения
-        dgvDataFromAssembly.Rows.Add("Проверка даты создания (изменения) файла", _listAssembly.Last) 'записать value в dgvAssembly
-
-        Dim SrfBods As SurfaceBodies = partDoc.ComponentDefinition.SurfaceBodies
-        For Each SrfBod In SrfBods
-            _listAssembly.Add(SrfBod.IsSolid) 'доб. value в _listAssembly
-        Next
-        dgvDataFromAssembly.Rows.Add("Деталь твердотельная (не поверхности)", _listAssembly.Last) 'записать value в dgvAssembly
-
-        Dim countOfSolidBody As Integer = 0
-        Dim oCompDef As ComponentDefinition = partDoc.ComponentDefinition
-        For Each SurfaceBody In oCompDef.SurfaceBodies
-            countOfSolidBody += 1
-        Next
-        If countOfSolidBody = 1 Then
-            _listAssembly.Add(True) 'true - да, из одного
-        Else
-            _listAssembly.Add(False) 'false - нет, не из одного
-        End If
-        dgvDataFromAssembly.Rows.Add("Деталь состоит из одного твердого тела", _listAssembly.Last) 'записать value в dgvAssembly
-
-        _listAssembly.Add(isOriginsInvisible(partDoc)) 'записать true - да, невидимый; false - видимый
-        dgvDataFromAssembly.Rows.Add("Все эскизы (2D и 3D) и объекты вспомогательной геометрии (плоскости, оси, точки) невидимы", _listAssembly.Last) 'записать value в dgvAssembly
+        getFirstSameParametersOfPart(partDoc)
 
         _listAssembly.Add(findValueInPartParamListByName("d0", listOfParameters)) 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Размер Ø25", _listAssembly.Last) 'записать value в dgvAssembly
@@ -856,55 +685,7 @@ Public Class Form1
         Dim listOfParameters As New List(Of PartParameter)()  'получить список параметров документа
         listOfParameters = getParametersFromPart(partDoc)
 
-        ' Get the PropertySets object.
-        Dim oPropSets As PropertySets = partDoc.PropertySets
-
-        ' Get the Inventor Summary Information property set.
-        'Dim oPropSetISI As PropertySet = oPropSets.Item("Inventor Summary Information")
-        ' Get the Inventor Document Summary Information property set.
-        'Dim oPropSetIDSI As PropertySet = oPropSets.Item("Inventor Document Summary Information")
-        ' Get the Design Tracking Properties property set.
-        Dim oPropSetDTP As PropertySet = oPropSets.Item("Design Tracking Properties")
-
-        _listAssembly.Add(oPropSetDTP.Item("Part Number").Value) 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Значение параметра Обозначение", _listAssembly.Last) 'записать value в dgvAssembly
-
-        _listAssembly.Add(oPropSetDTP.Item("Description").Value) 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Значение параметра Наименование", _listAssembly.Last) 'записать value в dgvAssembly
-
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Присвоение материала (с чертежа)", _listAssembly.Last) 'записать value в dgvAssembly
-
-        _listAssembly.Add(oPropSetDTP.Item("Material").Value) 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Присвоение представления", _listAssembly.Last) 'записать value в dgvAssembly
-
-        Dim filespec As String = partDoc.File.FullFileName 'получить полное имя фаила
-        Dim fs, f
-        fs = CreateObject("Scripting.FileSystemObject")
-        f = fs.GetFile(filespec)
-        _listAssembly.Add("Создан: " & f.DateCreated.ToString & " Изменен: " & f.DateLastModified.ToString) 'дата создания и дата изменения
-        dgvDataFromAssembly.Rows.Add("Проверка даты создания (изменения) файла", _listAssembly.Last) 'записать value в dgvAssembly
-
-        Dim SrfBods As SurfaceBodies = partDoc.ComponentDefinition.SurfaceBodies
-        For Each SrfBod In SrfBods
-            _listAssembly.Add(SrfBod.IsSolid) 'доб. value в _listAssembly
-        Next
-        dgvDataFromAssembly.Rows.Add("Деталь твердотельная (не поверхности)", _listAssembly.Last) 'записать value в dgvAssembly
-
-        Dim countOfSolidBody As Integer = 0
-        Dim oCompDef As ComponentDefinition = partDoc.ComponentDefinition
-        For Each SurfaceBody In oCompDef.SurfaceBodies
-            countOfSolidBody += 1
-        Next
-        If countOfSolidBody = 1 Then
-            _listAssembly.Add(True) 'true - да, из одного
-        Else
-            _listAssembly.Add(False) 'false - нет, не из одного
-        End If
-        dgvDataFromAssembly.Rows.Add("Деталь состоит из одного твердого тела", _listAssembly.Last) 'записать value в dgvAssembly
-
-        _listAssembly.Add(isOriginsInvisible(partDoc)) 'записать true - да, невидимый; false - видимый
-        dgvDataFromAssembly.Rows.Add("Все эскизы (2D и 3D) и объекты вспомогательной геометрии (плоскости, оси, точки) невидимы", _listAssembly.Last) 'записать value в dgvAssembly
+        getFirstSameParametersOfPart(partDoc)
 
         _listAssembly.Add(findValueInPartParamListByName("d14", listOfParameters)) 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Размер Ø64", _listAssembly.Last) 'записать value в dgvAssembly
@@ -992,55 +773,7 @@ Public Class Form1
         Dim listOfParameters As New List(Of PartParameter)()  'получить список параметров документа
         listOfParameters = getParametersFromPart(partDoc)
 
-        ' Get the PropertySets object.
-        Dim oPropSets As PropertySets = partDoc.PropertySets
-
-        ' Get the Inventor Summary Information property set.
-        'Dim oPropSetISI As PropertySet = oPropSets.Item("Inventor Summary Information")
-        ' Get the Inventor Document Summary Information property set.
-        'Dim oPropSetIDSI As PropertySet = oPropSets.Item("Inventor Document Summary Information")
-        ' Get the Design Tracking Properties property set.
-        Dim oPropSetDTP As PropertySet = oPropSets.Item("Design Tracking Properties")
-
-        _listAssembly.Add(oPropSetDTP.Item("Part Number").Value) 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Значение параметра Обозначение", _listAssembly.Last) 'записать value в dgvAssembly
-
-        _listAssembly.Add(oPropSetDTP.Item("Description").Value) 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Значение параметра Наименование", _listAssembly.Last) 'записать value в dgvAssembly
-
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Присвоение материала (с чертежа)", _listAssembly.Last) 'записать value в dgvAssembly
-
-        _listAssembly.Add(oPropSetDTP.Item("Material").Value) 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Присвоение представления", _listAssembly.Last) 'записать value в dgvAssembly
-
-        Dim filespec As String = partDoc.File.FullFileName 'получить полное имя фаила
-        Dim fs, f
-        fs = CreateObject("Scripting.FileSystemObject")
-        f = fs.GetFile(filespec)
-        _listAssembly.Add("Создан: " & f.DateCreated.ToString & " Изменен: " & f.DateLastModified.ToString) 'дата создания и дата изменения
-        dgvDataFromAssembly.Rows.Add("Проверка даты создания (изменения) файла", _listAssembly.Last) 'записать value в dgvAssembly
-
-        Dim SrfBods As SurfaceBodies = partDoc.ComponentDefinition.SurfaceBodies
-        For Each SrfBod In SrfBods
-            _listAssembly.Add(SrfBod.IsSolid) 'доб. value в _listAssembly
-        Next
-        dgvDataFromAssembly.Rows.Add("Деталь твердотельная (не поверхности)", _listAssembly.Last) 'записать value в dgvAssembly
-
-        Dim countOfSolidBody As Integer = 0
-        Dim oCompDef As ComponentDefinition = partDoc.ComponentDefinition
-        For Each SurfaceBody In oCompDef.SurfaceBodies
-            countOfSolidBody += 1
-        Next
-        If countOfSolidBody = 1 Then
-            _listAssembly.Add(True) 'true - да, из одного
-        Else
-            _listAssembly.Add(False) 'false - нет, не из одного
-        End If
-        dgvDataFromAssembly.Rows.Add("Деталь состоит из одного твердого тела", _listAssembly.Last) 'записать value в dgvAssembly
-
-        _listAssembly.Add(isOriginsInvisible(partDoc)) 'записать true - да, невидимый; false - видимый
-        dgvDataFromAssembly.Rows.Add("Все эскизы (2D и 3D) и объекты вспомогательной геометрии (плоскости, оси, точки) невидимы", _listAssembly.Last) 'записать value в dgvAssembly
+        getFirstSameParametersOfPart(partDoc)
 
         _listAssembly.Add(findValueInPartParamListByName("d1", listOfParameters)) 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Размер линейный", _listAssembly.Last) 'записать value в dgvAssembly

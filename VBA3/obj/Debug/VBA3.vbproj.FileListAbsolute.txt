@@ -10,4 +10,3 @@ c:\users\сергей\documents\visual studio 2015\Projects\VBA3\VBA3\obj\Debug\
 c:\users\сергей\documents\visual studio 2015\Projects\VBA3\VBA3\obj\Debug\VBA3.pdb
 c:\users\сергей\documents\visual studio 2015\Projects\VBA3\VBA3\obj\Debug\VBA3.vbprojResolveAssemblyReference.cache
 c:\users\сергей\documents\visual studio 2015\Projects\VBA3\VBA3\obj\Debug\VBA3.vbproj.ResolveComReference.cache
-C:\Users\Сергей\documents\visual studio 2015\Projects\VBA3\VBA3\obj\Debug\VBA3.LoadingForm.resources

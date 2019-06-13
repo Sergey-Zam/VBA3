@@ -34,12 +34,14 @@ Partial Class Form1
         Me.btnGetDataFromAssembly = New System.Windows.Forms.Button()
         Me.dgvDataFromExcel = New System.Windows.Forms.DataGridView()
         Me.btnGetDataFromExcel = New System.Windows.Forms.Button()
+        Me.lblLoading = New System.Windows.Forms.Label()
         CType(Me.dgvDataFromAssembly, System.ComponentModel.ISupportInitialize).BeginInit()
         CType(Me.dgvDataFromExcel, System.ComponentModel.ISupportInitialize).BeginInit()
         Me.SuspendLayout()
         '
         'lblCountOfAssembly
         '
+        Me.lblCountOfAssembly.Anchor = CType((System.Windows.Forms.AnchorStyles.Top Or System.Windows.Forms.AnchorStyles.Right), System.Windows.Forms.AnchorStyles)
         Me.lblCountOfAssembly.AutoSize = True
         Me.lblCountOfAssembly.Location = New System.Drawing.Point(617, 73)
         Me.lblCountOfAssembly.Name = "lblCountOfAssembly"
@@ -58,6 +60,7 @@ Partial Class Form1
         '
         'Label2
         '
+        Me.Label2.Anchor = CType((System.Windows.Forms.AnchorStyles.Top Or System.Windows.Forms.AnchorStyles.Right), System.Windows.Forms.AnchorStyles)
         Me.Label2.AutoSize = True
         Me.Label2.Location = New System.Drawing.Point(440, 73)
         Me.Label2.Name = "Label2"
@@ -76,6 +79,8 @@ Partial Class Form1
         '
         'tbAssemblyDirectory
         '
+        Me.tbAssemblyDirectory.Anchor = CType(((System.Windows.Forms.AnchorStyles.Top Or System.Windows.Forms.AnchorStyles.Left) _
+            Or System.Windows.Forms.AnchorStyles.Right), System.Windows.Forms.AnchorStyles)
         Me.tbAssemblyDirectory.Location = New System.Drawing.Point(234, 45)
         Me.tbAssemblyDirectory.Name = "tbAssemblyDirectory"
         Me.tbAssemblyDirectory.ReadOnly = True
@@ -84,6 +89,8 @@ Partial Class Form1
         '
         'tbExcelDirectory
         '
+        Me.tbExcelDirectory.Anchor = CType(((System.Windows.Forms.AnchorStyles.Top Or System.Windows.Forms.AnchorStyles.Left) _
+            Or System.Windows.Forms.AnchorStyles.Right), System.Windows.Forms.AnchorStyles)
         Me.tbExcelDirectory.Location = New System.Drawing.Point(234, 15)
         Me.tbExcelDirectory.Name = "tbExcelDirectory"
         Me.tbExcelDirectory.ReadOnly = True
@@ -92,8 +99,10 @@ Partial Class Form1
         '
         'btnCompare
         '
+        Me.btnCompare.Anchor = CType(((System.Windows.Forms.AnchorStyles.Bottom Or System.Windows.Forms.AnchorStyles.Left) _
+            Or System.Windows.Forms.AnchorStyles.Right), System.Windows.Forms.AnchorStyles)
         Me.btnCompare.ForeColor = System.Drawing.Color.Black
-        Me.btnCompare.Location = New System.Drawing.Point(12, 345)
+        Me.btnCompare.Location = New System.Drawing.Point(12, 445)
         Me.btnCompare.Name = "btnCompare"
         Me.btnCompare.Size = New System.Drawing.Size(706, 23)
         Me.btnCompare.TabIndex = 17
@@ -102,8 +111,9 @@ Partial Class Form1
         '
         'btnClearAll
         '
+        Me.btnClearAll.Anchor = CType((System.Windows.Forms.AnchorStyles.Bottom Or System.Windows.Forms.AnchorStyles.Right), System.Windows.Forms.AnchorStyles)
         Me.btnClearAll.ForeColor = System.Drawing.Color.Black
-        Me.btnClearAll.Location = New System.Drawing.Point(724, 345)
+        Me.btnClearAll.Location = New System.Drawing.Point(724, 445)
         Me.btnClearAll.Name = "btnClearAll"
         Me.btnClearAll.Size = New System.Drawing.Size(148, 23)
         Me.btnClearAll.TabIndex = 16
@@ -114,13 +124,15 @@ Partial Class Form1
         '
         Me.dgvDataFromAssembly.AllowUserToAddRows = False
         Me.dgvDataFromAssembly.AllowUserToDeleteRows = False
+        Me.dgvDataFromAssembly.Anchor = CType(((System.Windows.Forms.AnchorStyles.Top Or System.Windows.Forms.AnchorStyles.Bottom) _
+            Or System.Windows.Forms.AnchorStyles.Right), System.Windows.Forms.AnchorStyles)
         Me.dgvDataFromAssembly.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize
         Me.dgvDataFromAssembly.ColumnHeadersVisible = False
         Me.dgvDataFromAssembly.Location = New System.Drawing.Point(443, 89)
         Me.dgvDataFromAssembly.Name = "dgvDataFromAssembly"
         Me.dgvDataFromAssembly.ReadOnly = True
         Me.dgvDataFromAssembly.RowHeadersVisible = False
-        Me.dgvDataFromAssembly.Size = New System.Drawing.Size(429, 250)
+        Me.dgvDataFromAssembly.Size = New System.Drawing.Size(429, 350)
         Me.dgvDataFromAssembly.TabIndex = 15
         '
         'btnGetDataFromAssembly
@@ -137,13 +149,16 @@ Partial Class Form1
         '
         Me.dgvDataFromExcel.AllowUserToAddRows = False
         Me.dgvDataFromExcel.AllowUserToDeleteRows = False
+        Me.dgvDataFromExcel.Anchor = CType((((System.Windows.Forms.AnchorStyles.Top Or System.Windows.Forms.AnchorStyles.Bottom) _
+            Or System.Windows.Forms.AnchorStyles.Left) _
+            Or System.Windows.Forms.AnchorStyles.Right), System.Windows.Forms.AnchorStyles)
         Me.dgvDataFromExcel.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize
         Me.dgvDataFromExcel.ColumnHeadersVisible = False
         Me.dgvDataFromExcel.Location = New System.Drawing.Point(12, 89)
         Me.dgvDataFromExcel.Name = "dgvDataFromExcel"
         Me.dgvDataFromExcel.ReadOnly = True
         Me.dgvDataFromExcel.RowHeadersVisible = False
-        Me.dgvDataFromExcel.Size = New System.Drawing.Size(425, 250)
+        Me.dgvDataFromExcel.Size = New System.Drawing.Size(425, 350)
         Me.dgvDataFromExcel.TabIndex = 13
         '
         'btnGetDataFromExcel
@@ -155,11 +170,29 @@ Partial Class Form1
         Me.btnGetDataFromExcel.Text = "Импорт данных из Excel (*.xlsx, *.xls)"
         Me.btnGetDataFromExcel.UseVisualStyleBackColor = True
         '
+        'lblLoading
+        '
+        Me.lblLoading.AutoSize = True
+        Me.lblLoading.BackColor = System.Drawing.Color.CornflowerBlue
+        Me.lblLoading.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle
+        Me.lblLoading.Font = New System.Drawing.Font("Microsoft Sans Serif", 9.75!, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, CType(204, Byte))
+        Me.lblLoading.ForeColor = System.Drawing.Color.White
+        Me.lblLoading.Location = New System.Drawing.Point(764, 9)
+        Me.lblLoading.Name = "lblLoading"
+        Me.lblLoading.Padding = New System.Windows.Forms.Padding(12)
+        Me.lblLoading.Size = New System.Drawing.Size(108, 42)
+        Me.lblLoading.TabIndex = 24
+        Me.lblLoading.Text = "Подождите"
+        Me.lblLoading.TextAlign = System.Drawing.ContentAlignment.MiddleCenter
+        Me.lblLoading.Visible = False
+        '
         'Form1
         '
         Me.AutoScaleDimensions = New System.Drawing.SizeF(6.0!, 13.0!)
         Me.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font
-        Me.ClientSize = New System.Drawing.Size(884, 381)
+        Me.BackColor = System.Drawing.Color.White
+        Me.ClientSize = New System.Drawing.Size(884, 481)
+        Me.Controls.Add(Me.lblLoading)
         Me.Controls.Add(Me.lblCountOfAssembly)
         Me.Controls.Add(Me.lblCountOfExcel)
         Me.Controls.Add(Me.Label2)
@@ -194,4 +227,5 @@ Partial Class Form1
     Friend WithEvents btnGetDataFromAssembly As Button
     Friend WithEvents dgvDataFromExcel As DataGridView
     Friend WithEvents btnGetDataFromExcel As Button
+    Friend WithEvents lblLoading As Label
 End Class
