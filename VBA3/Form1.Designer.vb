@@ -45,18 +45,18 @@ Partial Class Form1
         Me.lblCountOfAssembly.AutoSize = True
         Me.lblCountOfAssembly.Location = New System.Drawing.Point(617, 73)
         Me.lblCountOfAssembly.Name = "lblCountOfAssembly"
-        Me.lblCountOfAssembly.Size = New System.Drawing.Size(10, 13)
+        Me.lblCountOfAssembly.Size = New System.Drawing.Size(13, 13)
         Me.lblCountOfAssembly.TabIndex = 23
-        Me.lblCountOfAssembly.Text = "."
+        Me.lblCountOfAssembly.Text = "0"
         '
         'lblCountOfExcel
         '
         Me.lblCountOfExcel.AutoSize = True
         Me.lblCountOfExcel.Location = New System.Drawing.Point(179, 73)
         Me.lblCountOfExcel.Name = "lblCountOfExcel"
-        Me.lblCountOfExcel.Size = New System.Drawing.Size(10, 13)
+        Me.lblCountOfExcel.Size = New System.Drawing.Size(13, 13)
         Me.lblCountOfExcel.TabIndex = 22
-        Me.lblCountOfExcel.Text = "."
+        Me.lblCountOfExcel.Text = "0"
         '
         'Label2
         '
@@ -102,7 +102,7 @@ Partial Class Form1
         Me.btnCompare.Anchor = CType(((System.Windows.Forms.AnchorStyles.Bottom Or System.Windows.Forms.AnchorStyles.Left) _
             Or System.Windows.Forms.AnchorStyles.Right), System.Windows.Forms.AnchorStyles)
         Me.btnCompare.ForeColor = System.Drawing.Color.Black
-        Me.btnCompare.Location = New System.Drawing.Point(12, 445)
+        Me.btnCompare.Location = New System.Drawing.Point(12, 525)
         Me.btnCompare.Name = "btnCompare"
         Me.btnCompare.Size = New System.Drawing.Size(706, 23)
         Me.btnCompare.TabIndex = 17
@@ -113,7 +113,7 @@ Partial Class Form1
         '
         Me.btnClearAll.Anchor = CType((System.Windows.Forms.AnchorStyles.Bottom Or System.Windows.Forms.AnchorStyles.Right), System.Windows.Forms.AnchorStyles)
         Me.btnClearAll.ForeColor = System.Drawing.Color.Black
-        Me.btnClearAll.Location = New System.Drawing.Point(724, 445)
+        Me.btnClearAll.Location = New System.Drawing.Point(724, 525)
         Me.btnClearAll.Name = "btnClearAll"
         Me.btnClearAll.Size = New System.Drawing.Size(148, 23)
         Me.btnClearAll.TabIndex = 16
@@ -132,7 +132,7 @@ Partial Class Form1
         Me.dgvDataFromAssembly.Name = "dgvDataFromAssembly"
         Me.dgvDataFromAssembly.ReadOnly = True
         Me.dgvDataFromAssembly.RowHeadersVisible = False
-        Me.dgvDataFromAssembly.Size = New System.Drawing.Size(429, 350)
+        Me.dgvDataFromAssembly.Size = New System.Drawing.Size(429, 430)
         Me.dgvDataFromAssembly.TabIndex = 15
         '
         'btnGetDataFromAssembly
@@ -158,7 +158,7 @@ Partial Class Form1
         Me.dgvDataFromExcel.Name = "dgvDataFromExcel"
         Me.dgvDataFromExcel.ReadOnly = True
         Me.dgvDataFromExcel.RowHeadersVisible = False
-        Me.dgvDataFromExcel.Size = New System.Drawing.Size(425, 350)
+        Me.dgvDataFromExcel.Size = New System.Drawing.Size(425, 430)
         Me.dgvDataFromExcel.TabIndex = 13
         '
         'btnGetDataFromExcel
@@ -177,12 +177,11 @@ Partial Class Form1
         Me.lblLoading.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle
         Me.lblLoading.Font = New System.Drawing.Font("Microsoft Sans Serif", 9.75!, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, CType(204, Byte))
         Me.lblLoading.ForeColor = System.Drawing.Color.White
-        Me.lblLoading.Location = New System.Drawing.Point(764, 9)
+        Me.lblLoading.Location = New System.Drawing.Point(846, 9)
         Me.lblLoading.Name = "lblLoading"
         Me.lblLoading.Padding = New System.Windows.Forms.Padding(12)
-        Me.lblLoading.Size = New System.Drawing.Size(108, 42)
+        Me.lblLoading.Size = New System.Drawing.Size(26, 42)
         Me.lblLoading.TabIndex = 24
-        Me.lblLoading.Text = "Подождите"
         Me.lblLoading.TextAlign = System.Drawing.ContentAlignment.MiddleCenter
         Me.lblLoading.Visible = False
         '
@@ -191,7 +190,7 @@ Partial Class Form1
         Me.AutoScaleDimensions = New System.Drawing.SizeF(6.0!, 13.0!)
         Me.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font
         Me.BackColor = System.Drawing.Color.White
-        Me.ClientSize = New System.Drawing.Size(884, 481)
+        Me.ClientSize = New System.Drawing.Size(884, 561)
         Me.Controls.Add(Me.lblLoading)
         Me.Controls.Add(Me.lblCountOfAssembly)
         Me.Controls.Add(Me.lblCountOfExcel)

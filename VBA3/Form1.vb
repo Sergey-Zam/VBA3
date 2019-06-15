@@ -1,6 +1,7 @@
 ﻿Option Explicit On
 Imports Inventor
 Imports Microsoft.Office.Interop
+Imports System.IO
 
 Public Class Form1
     'структура имя параметра-значение параметра
@@ -22,7 +23,6 @@ Public Class Form1
         InitializeComponent()
 
         'ниже размещается любой инициализирующий код.
-
         'добавить столбцы к обоим dgv
         dgvDataFromExcel.ColumnCount = 2
         dgvDataFromAssembly.ColumnCount = 2
@@ -31,16 +31,11 @@ Public Class Form1
         dgvDataFromExcel.Columns(1).Width = 100
         dgvDataFromAssembly.Columns(0).Width = 300
         dgvDataFromAssembly.Columns(1).Width = 100
-
-        'настроить сообщение "загрузка, подождите"
-        lblLoading.Visible = False
-        lblLoading.Top = (Me.ClientSize.Height / 2) - (lblLoading.Height / 2)
-        lblLoading.Left = (Me.ClientSize.Width / 2) - (lblLoading.Width / 2)
     End Sub
 
     'функция запускается, как только форма загружена.
     Private Sub Form1_Shown(sender As Object, e As EventArgs) Handles MyBase.Shown
-        lblLoading.Visible = True ' долгий процесс - показать сообщение загрузки
+        showLoadingMessage("Поиск/запуск Inventor") ' долгий процесс - показать сообщение загрузки
 
         'найти текущий сеанс Inventor (если Inventor не запущен - запустить)
         Try
@@ -82,7 +77,7 @@ Public Class Form1
 
         'если получен адрес (не пустой и не Nothing)
         If (Not String.IsNullOrEmpty(fullName)) Then
-            lblLoading.Visible = True ' долгий процесс - показать сообщение загрузки
+            showLoadingMessage("Загрузка данных из Excel") ' долгий процесс - показать сообщение загрузки
 
             Dim exl As New Excel.Application
             Dim exlSheet As Excel.Worksheet
@@ -149,7 +144,7 @@ Public Class Form1
 
         'если получен адрес (не пустой и не Nothing)
         If (Not String.IsNullOrEmpty(fullName)) Then
-            lblLoading.Visible = True ' долгий процесс - показать сообщение загрузки
+            showLoadingMessage("Получение данных из Inventor") ' долгий процесс - показать сообщение загрузки
 
             'открыть существующий документ сборки по указанному пути
             'переменная документа сборки, инициализировать
@@ -282,12 +277,10 @@ Public Class Form1
 
     'функция по нажатию кнопки "очистить обе таблицы"
     Private Sub btnClearAll_Click(sender As Object, e As EventArgs) Handles btnClearAll.Click
-        Dim result As Integer = MessageBox.Show("Вы действительно хотите очистить обе таблицы?", "Подтверждение действия", MessageBoxButtons.YesNoCancel)
+        Dim result As Integer = MessageBox.Show("Вы действительно хотите очистить обе таблицы?", "Подтверждение действия", MessageBoxButtons.OKCancel)
         If result = DialogResult.Cancel Then
             'отмена: ничего не делать
-        ElseIf result = DialogResult.No Then
-            'нет: ничего не делать
-        ElseIf result = DialogResult.Yes Then
+        ElseIf result = DialogResult.OK Then
             'да: действие подтверждено
             'dgvDataFromExcel.DataSource = Nothing
             dgvDataFromExcel.Rows.Clear()
@@ -296,13 +289,33 @@ Public Class Form1
             _listAssembly.Clear()
             tbExcelDirectory.Clear()
             tbAssemblyDirectory.Clear()
-            lblCountOfExcel.Text = ""
-            lblCountOfAssembly.Text = ""
+            lblCountOfExcel.Text = "0"
+            lblCountOfAssembly.Text = "0"
+        End If
+    End Sub
+
+    'функция по закрытию формы
+    Private Sub Form1_FormClosing(sender As Object, e As FormClosingEventArgs) Handles MyBase.FormClosing
+        Dim result As Integer = MessageBox.Show("Вы действительно хотите выйти?", "Подтверждение действия", MessageBoxButtons.OKCancel)
+        If result = DialogResult.Cancel Then
+            'отмена: не закрывать форму
+            e.Cancel = True
+        ElseIf result = DialogResult.OK Then
+            'подтверждение: закрыть форму
+            e.Cancel = False
         End If
     End Sub
 
     'Вспомогательные функции
-    'Вспомогательная функция найти чертеж к документу: сборке (assembly) или детали (part). если чертеж не найден, возвращает пустую строку: ""
+    'вспомогательная функция: показать сообщение загрузки
+    Private Sub showLoadingMessage(ByVal text)
+        lblLoading.Text = text
+        lblLoading.Top = (Me.ClientSize.Height / 2) - (lblLoading.Height / 2)
+        lblLoading.Left = (Me.ClientSize.Width / 2) - (lblLoading.Width / 2)
+        lblLoading.Visible = True
+    End Sub
+
+    'вспомогательная функция найти чертеж к документу: сборке (assembly) или детали (part). если чертеж не найден, возвращает пустую строку: ""
     Private Function findDrawingFullFileNameForDocument(ByVal doc As Document) As String
         Dim fullFilename As String = doc.FullFileName
 
@@ -895,7 +908,26 @@ Public Class Form1
     End Sub
 
     Private Sub getDrawing007(ByVal drawingDoc As Document)
-        Dim oSheet As Sheet = drawingDoc.ActiveSheet 'лист чертежа
+        Dim oSheet As Sheet = drawingDoc.Sheets.Item(1) 'лист чертежа
+        Dim oView As DrawingView = oSheet.DrawingViews.Item(1) 'вид листа
+
+        'start
+        'For Each param As Parameter In drawingDoc.Parameters
+        '    'Dim partParameter As PartParameter
+        '    'partParameter.name = param.Name
+        '    'partParameter.value = (param.ModelValue * 10).ToString
+        '    'listOfParameters.Add(partParameter)
+
+        '    MsgBox(param.Name)
+        '    MsgBox(param.Value)
+        'Next
+
+        'Dim str As String = ""
+        'For Each drawDim In oSheet.DrawingDimensions
+        'str &= "ModelValue: " & drawDim.ModelValue.ToString & vbCrLf
+        'MsgBox(drawDim.Text.Origin.X)
+        'Next
+        'end
 
         _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Выбор ориентации детали (протяженная, большая часть поверхностей цилиндры)", _listAssembly.Last) 'записать value в dgvAssembly
