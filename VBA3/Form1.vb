@@ -487,6 +487,33 @@ Public Class Form1
         dgvDataFromAssembly.Rows.Add("Все эскизы (2D и 3D) и объекты вспомогательной геометрии (плоскости, оси, точки) невидимы", _listAssembly.Last) 'записать value в dgvAssembly
     End Sub
 
+    'вспомогательная функция: получить параметры резьбы
+    Private Function getThreadsParams(ByVal partDoc As Document) As String
+        Dim resultString As String = ""
+
+        Dim fc As Face
+        For Each fc In partDoc.ComponentDefinition.SurfaceBodies.Item(1).Faces
+            If fc.SurfaceType = Inventor.SurfaceTypeEnum.kCylinderSurface Or fc.SurfaceType = Inventor.SurfaceTypeEnum.kConeSurface Then
+                If Not fc.ThreadInfos Is Nothing Then
+                    If fc.ThreadInfos.Count > 0 Then
+                        Dim thread As ThreadInfo
+                        For Each thread In fc.ThreadInfos
+                            resultString = "" ' !пока берется последняя резьба, старые рез-ы очищ. 
+                            resultString &= thread.ThreadDesignation 'designation
+                            resultString &= "-"
+
+                            If TypeOf thread Is StandardThreadInfo Then
+                                resultString &= thread.Class 'class
+                            End If
+                        Next
+                    End If
+                End If
+            End If
+        Next
+
+        Return resultString
+    End Function
+
     'Функции получения данных из деталей, сборки, чертежей
     Private Sub getPart001(ByVal partDoc As Document)
         Dim listOfParameters As New List(Of PartParameter)()  'получить список параметров документа
@@ -509,7 +536,7 @@ Public Class Form1
         _listAssembly.Add(findValueInPartParamListByName("d26", listOfParameters)) 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Фаска", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        _listAssembly.Add(getThreadsParams(partDoc)) 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Резьба (в отверстии)", _listAssembly.Last) 'записать value в dgvAssembly
 
         _listAssembly.Add(findValueInPartParamListByName("d18", listOfParameters)) 'доб. value в _listAssembly
@@ -546,7 +573,7 @@ Public Class Form1
         _listAssembly.Add(findValueInPartParamListByName("d1", listOfParameters)) 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Размер линейный", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        _listAssembly.Add(getThreadsParams(partDoc)) 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Резьба (в отверстии)", _listAssembly.Last) 'записать value в dgvAssembly
 
         _listAssembly.Add(findValueInPartParamListByName("d20", listOfParameters)) 'доб. value в _listAssembly
@@ -561,7 +588,13 @@ Public Class Form1
         _listAssembly.Add(findValueInPartParamListByName("d20", listOfParameters)) 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Фаска", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        Dim oHoles As HoleFeatures = partDoc.ComponentDefinition.Features.HoleFeatures
+        Dim count As Integer = oHoles.Count 'если > 0, значит используется инструмент отверстие
+        If count > 0 Then
+            _listAssembly.Add(True) 'доб. value в _listAssembly
+        Else
+            _listAssembly.Add(False) 'доб. value в _listAssembly
+        End If
         dgvDataFromAssembly.Rows.Add("Отверстие (строится инструментом отверстие)", _listAssembly.Last) 'записать value в dgvAssembly
 
         _listAssembly.Add(findValueInPartParamListByName("d10", listOfParameters)) 'доб. value в _listAssembly
@@ -570,7 +603,20 @@ Public Class Form1
         _listAssembly.Add(findValueInPartParamListByName("d15", listOfParameters)) 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Отверстие глубина 5", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        Dim oCircularPatternFeatures As CircularPatternFeatures = partDoc.ComponentDefinition.Features.CircularPatternFeatures
+        If oCircularPatternFeatures.Count = 1 Then
+            'найден один круговой массив. необходимо получить количество элементов этого массива
+            Dim countOfElems As Integer = oCircularPatternFeatures(1).Count.Value
+            'если элементов 4 - верно, подходит условиям
+            If countOfElems = 4 Then
+                _listAssembly.Add(True) 'доб. value в _listAssembly
+            Else
+                _listAssembly.Add(False) 'доб. value в _listAssembly
+            End If
+        Else
+            'круговых массивов нет, или больше одного (и то, и то неверно)
+            _listAssembly.Add(False) 'доб. value в _listAssembly
+        End If
         dgvDataFromAssembly.Rows.Add("Отверстие 4 экземпляра (круговым массивом)", _listAssembly.Last) 'записать value в dgvAssembly
 
         _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
@@ -613,7 +659,7 @@ Public Class Form1
         _listAssembly.Add(findValueInPartParamListByName("d14", listOfParameters)) 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Размер Ø36", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        _listAssembly.Add(getThreadsParams(partDoc)) 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Резьба наружная", _listAssembly.Last) 'записать value в dgvAssembly
 
         _listAssembly.Add(findValueInPartParamListByName("d24", listOfParameters)) 'доб. value в _listAssembly
@@ -727,7 +773,7 @@ Public Class Form1
         _listAssembly.Add(findValueInPartParamListByName("d6", listOfParameters)) 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Размер Ø21", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        _listAssembly.Add(getThreadsParams(partDoc)) 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Резьба (в отверстии)", _listAssembly.Last) 'записать value в dgvAssembly
 
         _listAssembly.Add(findValueInPartParamListByName("d20", listOfParameters)) 'доб. value в _listAssembly
@@ -763,7 +809,13 @@ Public Class Form1
         _listAssembly.Add(findValueInPartParamListByName("d40", listOfParameters)) 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Фаска", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        Dim oHoles As HoleFeatures = partDoc.ComponentDefinition.Features.HoleFeatures
+        Dim count As Integer = oHoles.Count 'если > 0, значит используется инструмент отверстие
+        If count > 0 Then
+            _listAssembly.Add(True) 'доб. value в _listAssembly
+        Else
+            _listAssembly.Add(False) 'доб. value в _listAssembly
+        End If
         dgvDataFromAssembly.Rows.Add("Отверстие (строится инструментом отверстие)", _listAssembly.Last) 'записать value в dgvAssembly
 
         _listAssembly.Add(findValueInPartParamListByName("d30", listOfParameters)) 'доб. value в _listAssembly
@@ -772,7 +824,20 @@ Public Class Form1
         _listAssembly.Add(findValueInPartParamListByName("d35", listOfParameters)) 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Отверстие глубина 5", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        Dim oCircularPatternFeatures As CircularPatternFeatures = partDoc.ComponentDefinition.Features.CircularPatternFeatures
+        If oCircularPatternFeatures.Count = 1 Then
+            'найден один круговой массив. необходимо получить количество элементов этого массива
+            Dim countOfElems As Integer = oCircularPatternFeatures(1).Count.Value
+            'если элементов 4 - верно, подходит условиям
+            If countOfElems = 4 Then
+                _listAssembly.Add(True) 'доб. value в _listAssembly
+            Else
+                _listAssembly.Add(False) 'доб. value в _listAssembly
+            End If
+        Else
+            'круговых массивов нет, или больше одного (и то, и то неверно)
+            _listAssembly.Add(False) 'доб. value в _listAssembly
+        End If
         dgvDataFromAssembly.Rows.Add("Отверстие 4 экземпляра (круговым массивом)", _listAssembly.Last) 'записать value в dgvAssembly
 
         _listAssembly.Add(findValueInPartParamListByName("d29", listOfParameters)) 'доб. value в _listAssembly
@@ -824,7 +889,7 @@ Public Class Form1
         _listAssembly.Add(findValueInPartParamListByName("d12", listOfParameters)) 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Размер R0,8", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
+        _listAssembly.Add(getThreadsParams(partDoc)) 'доб. value в _listAssembly
         dgvDataFromAssembly.Rows.Add("Резьба наружная", _listAssembly.Last) 'записать value в dgvAssembly
 
         _listAssembly.Add(findValueInPartParamListByName("d18", listOfParameters)) 'доб. value в _listAssembly
@@ -911,22 +976,13 @@ Public Class Form1
         Dim oSheet As Sheet = drawingDoc.Sheets.Item(1) 'лист чертежа
         Dim oView As DrawingView = oSheet.DrawingViews.Item(1) 'вид листа
 
-        'start
-        'For Each param As Parameter In drawingDoc.Parameters
-        '    'Dim partParameter As PartParameter
-        '    'partParameter.name = param.Name
-        '    'partParameter.value = (param.ModelValue * 10).ToString
-        '    'listOfParameters.Add(partParameter)
-
-        '    MsgBox(param.Name)
-        '    MsgBox(param.Value)
-        'Next
-
+        'start (get numeric parameters)
         'Dim str As String = ""
         'For Each drawDim In oSheet.DrawingDimensions
-        'str &= "ModelValue: " & drawDim.ModelValue.ToString & vbCrLf
-        'MsgBox(drawDim.Text.Origin.X)
+        '    str &= "ModelValue: " & drawDim.ModelValue.ToString & vbCrLf
+        '    'MsgBox(drawDim.Text.Origin.X)
         'Next
+        'MsgBox(str)
         'end
 
         _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
