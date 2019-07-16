@@ -4,6 +4,21 @@ Imports Microsoft.Office.Interop
 Imports System.IO
 
 Public Class Form1
+    'структура: исходные данные из excel
+    Private Structure AspectData
+        'поля, заполняемые через Excel:
+        Public text As String 'текст аспекта
+        Public valueFromExcel As String 'значение аспекта из Excel
+        Public weight As Double 'вес (значимость) аспекта
+        Public tolerance As Double 'допустимое отклонение аспекта
+        Public interpretation As String 'интрпретация аспекта
+        Public comment As String 'комментарий к аспекту
+
+        'поля, заполняемые через Inventor
+        Public valueFromInventor As String 'значение аспекта из Inventor
+        Public delta As Double 'имеющееся отклонение аспекта
+    End Structure
+
     'структура имя параметра-значение параметра
     Private Structure PartParameter
         Public name As String
@@ -14,8 +29,10 @@ Public Class Form1
     Dim _invApplication As Application = Nothing 'приложение Inventor
     Dim _openFileDialog As New OpenFileDialog 'диалог выбора файла
     Dim _conn As OleDb.OleDbConnection 'подключение к источнику данных
-    Dim _listExcel, _listAssembly As New List(Of String)() 'списки для хранения данных из excel и assembly
-    Dim _excelCellsRead As String = "F14:G225" 'какие ячейки считывать из excel
+    Dim _listAspects As New List(Of AspectData)() 'список для хранения всех данных: из excel, из inventor
+    Dim _excelCellsRead As String = "F14:K225" 'какие ячейки считывать из excel
+    Dim _countOfExcelСolumns = 6 'количество столбцов, берущих данные из Excel
+    Dim _counterForInventorAspects = 0 'счетчик, увеличивающийся при занесении записей из Inventor в _listAspects
 
     'функция автоматически запускается перед открытием формы. 
     Public Sub New()
@@ -23,14 +40,30 @@ Public Class Form1
         InitializeComponent()
 
         'ниже размещается любой инициализирующий код.
-        'добавить столбцы к обоим dgv
-        dgvDataFromExcel.ColumnCount = 2
-        dgvDataFromAssembly.ColumnCount = 2
-        'и задать им ширину
-        dgvDataFromExcel.Columns(0).Width = 300
-        dgvDataFromExcel.Columns(1).Width = 100
-        dgvDataFromAssembly.Columns(0).Width = 300
-        dgvDataFromAssembly.Columns(1).Width = 100
+        'добавить столбцы к dgvAspects
+        dgvAspects.ColumnCount = 8
+        'и задать им ширину, заголовки
+        dgvAspects.Columns(0).Width = 300
+        dgvAspects.Columns(0).HeaderText = "Аспект"
+        dgvAspects.Columns(1).Width = 200
+        dgvAspects.Columns(1).HeaderText = "Значение (из Excel)"
+        dgvAspects.Columns(2).Width = 100
+        dgvAspects.Columns(2).HeaderText = "Вес аспекта"
+        dgvAspects.Columns(3).Width = 100
+        dgvAspects.Columns(3).HeaderText = "Допустимое отклонение, точность (%)"
+        dgvAspects.Columns(4).Width = 100
+        dgvAspects.Columns(4).HeaderText = "Интрпретация"
+        dgvAspects.Columns(5).Width = 100
+        dgvAspects.Columns(5).HeaderText = "Комментарий"
+        dgvAspects.Columns(6).Width = 200
+        dgvAspects.Columns(6).HeaderText = "Значение (из Inventor)"
+        dgvAspects.Columns(7).Width = 100
+        dgvAspects.Columns(7).HeaderText = "Имеющееся отклонение (%)"
+
+        'увеличить форму на весь экран
+        Me.WindowState = FormWindowState.Maximized
+        'Me.FormBorderStyle = FormBorderStyle.None
+        'Me.TopMost = True
     End Sub
 
     'функция запускается, как только форма загружена.
@@ -86,39 +119,60 @@ Public Class Form1
             tbExcelDirectory.Text = fullName 'заполнить tbExcelDirectory адресом этого документа
 
             exlSheet = exl.Workbooks(1).Worksheets(1) 'Переходим к первому листу
-            Dim array As Object = exlSheet.Range(_excelCellsRead).Value 'Теперь вспомогательный array содержит таблицу из excel
+
+            Dim a(,) As Object
+            a = exlSheet.Range(_excelCellsRead).Value 'Теперь вспомогательный массив a содержит таблицу из excel
+
             'закрыть документ excel - больше не нужен
             exl.Quit()
             exlSheet = Nothing
             exl = Nothing
 
-            'все четные не значения array записать в массив evenElems (описания, столбец А), все нечетные значения записать в _listExcel (значения, столбец В)
-            'при этом все значения не null и не пустые
-            _listExcel.Clear() 'перед заполнением _listExcel надо очистить
-            Dim evenElems As New List(Of String)()
-            Dim k As Integer = 0
-            For Each i As Object In array
-                If (Not (i Is Nothing)) Then
-                    If (Not (i.ToString = "")) Then
-                        If (k Mod 2 = 0) Then 'четное в массив evenElems
-                            evenElems.Add(i.ToString)
-                        Else 'нечетное в _listExcel
-                            _listExcel.Add(i.ToString)
-                        End If
+            Dim countOfA As Integer = a.Length 'количество всех элементов массива a
+            Dim countOfRowsInA As Integer = countOfA / _countOfExcelСolumns 'количество строк в a
+
+            'проход по всем строкам массива a, что бы переписать их в _listAspects. записаны будут только не пустые значения
+            _listAspects.Clear() 'перед заполнением _listAspects надо очистить
+            lblCountOfExcel.Text = "0"
+            For i As Integer = 1 To countOfRowsInA
+                If a(i, 1) IsNot Nothing Then 'если поле текста аспекта существует
+                    If a(i, 1) IsNot "" Then 'если поле текста аспекта не пустое
+                        Dim ed As AspectData = Nothing
+
+                        ed.text = a(i, 1)
+                        ed.valueFromExcel = a(i, 2)
+
+                        Try
+                            ed.weight = Convert.ToDouble(a(i, 3))
+                        Catch ex As Exception
+                            ed.weight = 0
+                        End Try
+
+                        Try
+                            ed.tolerance = Convert.ToDouble(a(i, 4))
+                        Catch ex As Exception
+                            ed.tolerance = 0
+                        End Try
+
+                        ed.interpretation = a(i, 5)
+                        ed.comment = a(i, 6)
+
+                        'все значения из excel добавлены, но нельзя оставлять оставшиеся поля со значением Nothing
+                        ed.valueFromInventor = ""
+                        ed.delta = 0
+
+                        _listAspects.Add(ed)
                     End If
                 End If
-                k += 1
             Next
 
-            'записать полученные данные (вспомогательный array) в dgvDataFromExcel
-            dgvDataFromExcel.Rows.Clear() 'перед этим dgv надо очистить
-            k = 0
-            For Each s As String In _listExcel
-                dgvDataFromExcel.Rows.Add(evenElems(k), _listExcel(k))
-                k += 1
+            'теперь нужно пройти весь _listAspects, и каждый его элемент (содержащий 8 полей) переписать в dgv
+            dgvAspects.Rows.Clear() 'перед заполнением dgv надо очистить
+            For Each d As AspectData In _listAspects
+                dgvAspects.Rows.Add(d.text, d.valueFromExcel, d.weight, d.tolerance, d.interpretation, d.comment, d.valueFromInventor, d.delta)
             Next
 
-            lblCountOfExcel.Text = _listExcel.Count
+            lblCountOfExcel.Text = _listAspects.Count
 
             lblLoading.Visible = False 'закрыть сообщение загрузки
         End If
@@ -126,6 +180,11 @@ Public Class Form1
 
     'функция вызывается по нажатию кнопки "Получить данные из сборки"
     Private Sub btnGetDataFromAssembly_Click(sender As Object, e As EventArgs) Handles btnGetDataFromAssembly.Click
+        If _listAspects.Count = 0 Then
+            MsgBox("Сначала необходимо считать данные из Excel")
+            Return 'выход из функции обработчика кнопки
+        End If
+
         'выбрать фаил сборки
         Dim fullName As String = ""
         Try
@@ -165,9 +224,14 @@ Public Class Form1
                 Return
             End If
 
-            'перед проходом по всем документам: part, assembly, draw, необходимо очистить список _listAssembly - в нем могут быть старые значения
-            _listAssembly.Clear()
-            dgvDataFromAssembly.Rows.Clear() 'dgv так же надо очистить
+            'перед проходом по всем документам: part, assembly, draw, необходимо очистить поля, получаемые из Inventor в _listAspects - в них могут быть старые значения
+            For Each aspekt As AspectData In _listAspects
+                aspekt.valueFromInventor = ""
+                aspekt.delta = 0
+            Next
+            'так же нужно сбросить счетчик в изначальное состояние
+            _counterForInventorAspects = 0
+            lblCountOfAssembly.Text = "0"
 
             '---parts---
             'переменные для документов всех проверяемых деталей
@@ -229,7 +293,13 @@ Public Class Form1
             'Получить данные каждого чертежа
             getDrawing007(drawing007Doc)
 
-            lblCountOfAssembly.Text = _listAssembly.Count
+            'Все данные из Inventor получены в _listAspects. dgv надо обновить
+            dgvAspects.Rows.Clear()
+            For Each d As AspectData In _listAspects
+                dgvAspects.Rows.Add(d.text, d.valueFromExcel, d.weight, d.tolerance, d.interpretation, d.comment, d.valueFromInventor, d.delta)
+            Next
+
+            lblCountOfAssembly.Text = _counterForInventorAspects
 
             lblLoading.Visible = False 'закрыть сообщение загрузки
         End If
@@ -239,39 +309,52 @@ Public Class Form1
     Private Sub btnCompare_Click(sender As Object, e As EventArgs) Handles btnCompare.Click
         Dim correct As Boolean = True
         Dim errors As Integer = 0
-        If (_listExcel.Count = 0 Or _listAssembly.Count = 0) Then
+        Dim total_points As Double = 0
+        If (_listAspects.Count = 0 Or lblCountOfAssembly.Text = 0) Then
             MsgBox("Сначала необходимо считать данные из эксель и сборки")
-            Return
-        ElseIf Not (_listExcel.Count = _listAssembly.Count) Then
-            MsgBox("Ошибка: количество записей не совпадает")
             Return
         Else
             Dim style_wrong As New DataGridViewCellStyle
             style_wrong.BackColor = Drawing.Color.LightCoral
+            Dim style_full_right As New DataGridViewCellStyle
+            style_full_right.BackColor = Drawing.Color.Green
             Dim style_right As New DataGridViewCellStyle
             style_right.BackColor = Drawing.Color.LightGreen
 
-            For i = 0 To (_listExcel.Count - 1)
-                If Not (_listExcel(i) = _listAssembly(i)) Then
-                    'если ошибка
-                    correct = False
-                    errors += 1
-                    dgvDataFromAssembly.Rows(i).DefaultCellStyle = style_wrong
-                    dgvDataFromExcel.Rows(i).DefaultCellStyle = style_wrong
+            For i = 0 To (_listAspects.Count - 1)
+                If (_listAspects(i).valueFromExcel = _listAspects(i).valueFromInventor) Then
+                    'если значения точно совпадают, ответ верный
+                    dgvAspects.Rows(i).DefaultCellStyle = style_full_right
+                    total_points += _listAspects(i).weight
                 Else
-                    'если правильно
-                    dgvDataFromAssembly.Rows(i).DefaultCellStyle = style_right
-                    dgvDataFromExcel.Rows(i).DefaultCellStyle = style_right
-
-                    'dgvDataFromAssembly.Rows(i).Cells(0).Style = style_right
+                    Dim valueFromInventor, valueFromExcel As Double
+                    'значения не совпадают, необходимо проверить точность (если возможно)
+                    If Double.TryParse(_listAspects(i).valueFromInventor, valueFromInventor) And Double.TryParse(_listAspects(i).valueFromExcel, valueFromExcel) Then
+                        'если допустимое отклонение больше, чем текущее отклонение, ответ верный
+                        If (_listAspects(i).tolerance > _listAspects(i).delta) Then
+                            'ответ верный, в пределах отклонения (но не точный)
+                            dgvAspects.Rows(i).DefaultCellStyle = style_right
+                            total_points += _listAspects(i).weight
+                        Else
+                            'ответ не верный
+                            correct = False
+                            errors += 1
+                            dgvAspects.Rows(i).DefaultCellStyle = style_wrong
+                        End If
+                    Else
+                        'значение - не число, нет смысла проверять точность, ответ неверный
+                        correct = False
+                        errors += 1
+                        dgvAspects.Rows(i).DefaultCellStyle = style_wrong
+                    End If
                 End If
             Next
         End If
 
         If (correct = True) Then
-            MsgBox("Не найдено ни одной ошибки")
+            MsgBox("Не найдено ни одной ошибки" & vbCrLf & "Всего набрано баллов: " & total_points)
         Else
-            MsgBox("Найдено " & errors & " ошибок")
+            MsgBox("Найдено " & errors & " ошибок" & vbCrLf & "Всего набрано баллов: " & total_points)
         End If
     End Sub
 
@@ -283,10 +366,8 @@ Public Class Form1
         ElseIf result = DialogResult.OK Then
             'да: действие подтверждено
             'dgvDataFromExcel.DataSource = Nothing
-            dgvDataFromExcel.Rows.Clear()
-            dgvDataFromAssembly.Rows.Clear()
-            _listExcel.Clear()
-            _listAssembly.Clear()
+            dgvAspects.Rows.Clear()
+            _listAspects.Clear()
             tbExcelDirectory.Clear()
             tbAssemblyDirectory.Clear()
             lblCountOfExcel.Text = "0"
@@ -434,6 +515,33 @@ Public Class Form1
         Return value
     End Function
 
+    'вспомогательная функция: добавить в структуру типа AspectData значение с заполненными столбцами, получаемыми из Inventor
+    Private Sub addInventorValuesInAspectDataList(ByVal value As String)
+        Dim aspect As AspectData = Nothing
+        aspect = _listAspects(_counterForInventorAspects) 'получить текущее значение счетчика записей
+
+        aspect.valueFromInventor = value
+        'подсчет дельты (формула?)
+        Try
+            Dim max_value As Double = 0
+            If aspect.valueFromExcel > aspect.valueFromInventor Then
+                aspect.delta = (Math.Abs(aspect.valueFromExcel - aspect.valueFromInventor) / aspect.valueFromExcel) * 100
+            ElseIf aspect.valueFromExcel < aspect.valueFromInventor Then
+                aspect.delta = (Math.Abs(aspect.valueFromExcel - aspect.valueFromInventor) / aspect.valueFromInventor) * 100
+            Else
+                aspect.delta = 0
+            End If
+        Catch ex As Exception
+            aspect.delta = 0
+        End Try
+
+        'новое значение aspect, включающее данные из Inventor, нужно вставить вместо старого значения
+        _listAspects(_counterForInventorAspects) = aspect
+
+        'увеличить счетчик считанных свойств из Inventor
+        _counterForInventorAspects += 1
+    End Sub
+
     'вспомогательная функция: получение первых восьми одинаковых параметров для детали (объединение одинаковых параметров)
     Private Sub getFirstSameParametersOfPart(ByVal partDoc As Document)
         ' Get the PropertySets object.
@@ -446,45 +554,47 @@ Public Class Form1
         ' Get the Design Tracking Properties property set.
         Dim oPropSetDTP As PropertySet = oPropSets.Item("Design Tracking Properties")
 
-        _listAssembly.Add(oPropSetDTP.Item("Part Number").Value) 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Значение параметра Обозначение", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Значение параметра Обозначение"
+        addInventorValuesInAspectDataList(oPropSetDTP.Item("Part Number").Value)
 
-        _listAssembly.Add(oPropSetDTP.Item("Description").Value) 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Значение параметра Наименование", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Значение параметра Наименование"
+        addInventorValuesInAspectDataList(oPropSetDTP.Item("Description").Value)
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Присвоение материала (с чертежа)", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Присвоение материала (с чертежа)"
+        addInventorValuesInAspectDataList("EMPTY VALUE")
 
-        _listAssembly.Add(oPropSetDTP.Item("Material").Value) 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Присвоение представления", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Присвоение представления"
+        addInventorValuesInAspectDataList(oPropSetDTP.Item("Material").Value)
 
+        '"Проверка даты создания (изменения) файла"
         Dim filespec As String = partDoc.File.FullFileName 'получить полное имя фаила
         Dim fs, f
         fs = CreateObject("Scripting.FileSystemObject")
         f = fs.GetFile(filespec)
-        _listAssembly.Add("Создан: " & f.DateCreated.ToString & " Изменен: " & f.DateLastModified.ToString) 'дата создания и дата изменения
-        dgvDataFromAssembly.Rows.Add("Проверка даты создания (изменения) файла", _listAssembly.Last) 'записать value в dgvAssembly
+        addInventorValuesInAspectDataList("Создан: " & f.DateCreated.ToString & " Изменен: " & f.DateLastModified.ToString) 'дата создания и дата изменения
 
+        '"Деталь твердотельная (не поверхности)"
         Dim SrfBods As SurfaceBodies = partDoc.ComponentDefinition.SurfaceBodies
+        Dim b As Boolean
         For Each SrfBod In SrfBods
-            _listAssembly.Add(SrfBod.IsSolid) 'доб. value в _listAssembly
+            b = SrfBod.IsSolid '? значение последнего surface body ?
         Next
-        dgvDataFromAssembly.Rows.Add("Деталь твердотельная (не поверхности)", _listAssembly.Last) 'записать value в dgvAssembly
+        addInventorValuesInAspectDataList(b)
 
+        '"Деталь состоит из одного твердого тела"
         Dim countOfSolidBody As Integer = 0
         Dim oCompDef As ComponentDefinition = partDoc.ComponentDefinition
         For Each SurfaceBody In oCompDef.SurfaceBodies
             countOfSolidBody += 1
         Next
         If countOfSolidBody = 1 Then
-            _listAssembly.Add(True) 'true - да, из одного
+            addInventorValuesInAspectDataList(True) 'true - да, из одного
         Else
-            _listAssembly.Add(False) 'false - нет, не из одного
+            addInventorValuesInAspectDataList(False) 'false - нет, не из одного
         End If
-        dgvDataFromAssembly.Rows.Add("Деталь состоит из одного твердого тела", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add(isOriginsInvisible(partDoc)) 'записать true - да, невидимый; false - видимый
-        dgvDataFromAssembly.Rows.Add("Все эскизы (2D и 3D) и объекты вспомогательной геометрии (плоскости, оси, точки) невидимы", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Все эскизы (2D и 3D) и объекты вспомогательной геометрии (плоскости, оси, точки) невидимы"
+        addInventorValuesInAspectDataList(isOriginsInvisible(partDoc)) 'записать true - да, невидимый; false - видимый
     End Sub
 
     'вспомогательная функция: получить параметры резьбы
@@ -498,12 +608,17 @@ Public Class Form1
                     If fc.ThreadInfos.Count > 0 Then
                         Dim thread As ThreadInfo
                         For Each thread In fc.ThreadInfos
-                            resultString = "" ' !пока берется последняя резьба, старые рез-ы очищ. 
-                            resultString &= thread.ThreadDesignation 'designation
+                            resultString = "" ' !пока берется последняя резьба, старые рез-ы очищ.
+
+                            Dim threadDesignation As String = thread.ThreadDesignation 'designation (пример: М10х1.5)
+                            threadDesignation = Replace(threadDesignation, "M", "М") 'заменить английскую букву M на русскую
+                            threadDesignation = Replace(threadDesignation, "x", "х") 'заменить английскую букву x на русскую
+                            threadDesignation = Replace(threadDesignation, ".", ",") 'заменить точку на запятую
+                            resultString &= threadDesignation
                             resultString &= "-"
 
                             If TypeOf thread Is StandardThreadInfo Then
-                                resultString &= thread.Class 'class
+                                resultString &= thread.Class 'class (пример: 6H)
                             End If
                         Next
                     End If
@@ -521,44 +636,44 @@ Public Class Form1
 
         getFirstSameParametersOfPart(partDoc)
 
-        _listAssembly.Add(findValueInPartParamListByName("d10", listOfParameters)) 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Размер Ø12", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Размер Ø12"
+        addInventorValuesInAspectDataList(findValueInPartParamListByName("d10", listOfParameters))
 
-        _listAssembly.Add(findValueInPartParamListByName("d0", listOfParameters)) 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Размер R10", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Размер R10"
+        addInventorValuesInAspectDataList(findValueInPartParamListByName("d0", listOfParameters))
 
-        _listAssembly.Add(findValueInPartParamListByName("d3", listOfParameters)) 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Размер линейный (на виде спереди)", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Размер линейный (на виде спереди)"
+        addInventorValuesInAspectDataList(findValueInPartParamListByName("d3", listOfParameters))
 
-        _listAssembly.Add(findValueInPartParamListByName("d1", listOfParameters)) 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Размер линейный", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Размер линейный"
+        addInventorValuesInAspectDataList(findValueInPartParamListByName("d1", listOfParameters))
 
-        _listAssembly.Add(findValueInPartParamListByName("d26", listOfParameters)) 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Фаска", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Фаска"
+        addInventorValuesInAspectDataList(findValueInPartParamListByName("d26", listOfParameters))
 
-        _listAssembly.Add(getThreadsParams(partDoc)) 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Резьба (в отверстии)", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Резьба (в отверстии)"
+        addInventorValuesInAspectDataList(getThreadsParams(partDoc))
 
-        _listAssembly.Add(findValueInPartParamListByName("d18", listOfParameters)) 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Размер линейный (на виде сверху)", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Размер линейный (на виде сверху)"
+        addInventorValuesInAspectDataList(findValueInPartParamListByName("d18", listOfParameters))
 
-        _listAssembly.Add(findValueInPartParamListByName("d5", listOfParameters)) 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Размер линейный (на виде слева, ширина)", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Размер линейный (на виде слева, ширина)"
+        addInventorValuesInAspectDataList(findValueInPartParamListByName("d5", listOfParameters))
 
-        _listAssembly.Add(findValueInPartParamListByName("d2", listOfParameters)) 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Размер линейный (на виде слева, высота)", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Размер линейный (на виде слева, высота)"
+        addInventorValuesInAspectDataList(findValueInPartParamListByName("d2", listOfParameters))
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Геометрия (центр отверстия Ø12 на в центре дуги R10)", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Геометрия (центр отверстия Ø12 на в центре дуги R10)"
+        addInventorValuesInAspectDataList("EMPTY VALUE")
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Геометрия (симметрия на виде спереди)", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Геометрия (симметрия на виде спереди)"
+        addInventorValuesInAspectDataList("EMPTY VALUE")
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Геометрия (симметрия на виде сверху)", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Геометрия (симметрия на виде сверху)"
+        addInventorValuesInAspectDataList("EMPTY VALUE")
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Геометрия (симметрия на виде слева)", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Геометрия (симметрия на виде слева)"
+        addInventorValuesInAspectDataList("EMPTY VALUE")
     End Sub
 
     Private Sub getPart002(ByVal partDoc As Document)
@@ -567,60 +682,60 @@ Public Class Form1
 
         getFirstSameParametersOfPart(partDoc)
 
-        _listAssembly.Add(findValueInPartParamListByName("d0", listOfParameters)) 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Размер Ø68", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Размер Ø68"
+        addInventorValuesInAspectDataList(findValueInPartParamListByName("d0", listOfParameters))
 
-        _listAssembly.Add(findValueInPartParamListByName("d1", listOfParameters)) 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Размер линейный", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Размер линейный"
+        addInventorValuesInAspectDataList(findValueInPartParamListByName("d1", listOfParameters))
 
-        _listAssembly.Add(getThreadsParams(partDoc)) 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Резьба (в отверстии)", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Резьба (в отверстии)"
+        addInventorValuesInAspectDataList(getThreadsParams(partDoc))
 
-        _listAssembly.Add(findValueInPartParamListByName("d20", listOfParameters)) 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Фаска", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Фаска"
+        addInventorValuesInAspectDataList(findValueInPartParamListByName("d20", listOfParameters))
 
-        _listAssembly.Add(findValueInPartParamListByName("d20", listOfParameters)) 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Фаска", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Фаска"
+        addInventorValuesInAspectDataList(findValueInPartParamListByName("d20", listOfParameters))
 
-        _listAssembly.Add(findValueInPartParamListByName("d20", listOfParameters)) 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Фаска", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Фаска"
+        addInventorValuesInAspectDataList(findValueInPartParamListByName("d20", listOfParameters))
 
-        _listAssembly.Add(findValueInPartParamListByName("d20", listOfParameters)) 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Фаска", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Фаска"
+        addInventorValuesInAspectDataList(findValueInPartParamListByName("d20", listOfParameters))
 
+        '"Отверстие (строится инструментом отверстие)"
         Dim oHoles As HoleFeatures = partDoc.ComponentDefinition.Features.HoleFeatures
         Dim count As Integer = oHoles.Count 'если > 0, значит используется инструмент отверстие
         If count > 0 Then
-            _listAssembly.Add(True) 'доб. value в _listAssembly
+            addInventorValuesInAspectDataList(True)
         Else
-            _listAssembly.Add(False) 'доб. value в _listAssembly
+            addInventorValuesInAspectDataList(False)
         End If
-        dgvDataFromAssembly.Rows.Add("Отверстие (строится инструментом отверстие)", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add(findValueInPartParamListByName("d10", listOfParameters)) 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Отверстие Ø6", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Отверстие Ø6"
+        addInventorValuesInAspectDataList(findValueInPartParamListByName("d10", listOfParameters))
 
-        _listAssembly.Add(findValueInPartParamListByName("d15", listOfParameters)) 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Отверстие глубина 5", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Отверстие глубина 5"
+        addInventorValuesInAspectDataList(findValueInPartParamListByName("d15", listOfParameters))
 
+        '"Отверстие 4 экземпляра (круговым массивом)"
         Dim oCircularPatternFeatures As CircularPatternFeatures = partDoc.ComponentDefinition.Features.CircularPatternFeatures
         If oCircularPatternFeatures.Count = 1 Then
             'найден один круговой массив. необходимо получить количество элементов этого массива
             Dim countOfElems As Integer = oCircularPatternFeatures(1).Count.Value
             'если элементов 4 - верно, подходит условиям
             If countOfElems = 4 Then
-                _listAssembly.Add(True) 'доб. value в _listAssembly
+                addInventorValuesInAspectDataList(True)
             Else
-                _listAssembly.Add(False) 'доб. value в _listAssembly
+                addInventorValuesInAspectDataList(False)
             End If
         Else
             'круговых массивов нет, или больше одного (и то, и то неверно)
-            _listAssembly.Add(False) 'доб. value в _listAssembly
+            addInventorValuesInAspectDataList(False)
         End If
-        dgvDataFromAssembly.Rows.Add("Отверстие 4 экземпляра (круговым массивом)", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Геометрия (отверстия симметричны на виде спереди)", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Геометрия (отверстия симметричны на виде спереди)"
+        addInventorValuesInAspectDataList("EMPTY VALUE")
     End Sub
 
     Private Sub getPart003(ByVal partDoc As Document)
@@ -629,71 +744,71 @@ Public Class Form1
 
         getFirstSameParametersOfPart(partDoc)
 
-        _listAssembly.Add(findValueInPartParamListByName("d4", listOfParameters)) 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Размер линейный", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Размер линейный"
+        addInventorValuesInAspectDataList(findValueInPartParamListByName("d4", listOfParameters))
 
-        _listAssembly.Add(findValueInPartParamListByName("d2", listOfParameters)) 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Размер Ø48", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Размер Ø48"
+        addInventorValuesInAspectDataList(findValueInPartParamListByName("d2", listOfParameters))
 
-        _listAssembly.Add(findValueInPartParamListByName("d1", listOfParameters)) 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Размер Ø30", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Размер Ø30"
+        addInventorValuesInAspectDataList(findValueInPartParamListByName("d1", listOfParameters))
 
-        _listAssembly.Add(findValueInPartParamListByName("d3", listOfParameters)) 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Размер линейный", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Размер линейный"
+        addInventorValuesInAspectDataList(findValueInPartParamListByName("d3", listOfParameters))
 
-        _listAssembly.Add(findValueInPartParamListByName("d26", listOfParameters)) 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Размер R5", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Размер R5"
+        addInventorValuesInAspectDataList(findValueInPartParamListByName("d26", listOfParameters))
 
-        _listAssembly.Add(findValueInPartParamListByName("d11", listOfParameters)) 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Размер линейный (на виде спереди)", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Размер линейный (на виде спереди)"
+        addInventorValuesInAspectDataList(findValueInPartParamListByName("d11", listOfParameters))
 
-        _listAssembly.Add(findValueInPartParamListByName("d9", listOfParameters)) 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Размер линейный (на виде спереди)", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Размер линейный (на виде спереди)"
+        addInventorValuesInAspectDataList(findValueInPartParamListByName("d9", listOfParameters))
 
-        _listAssembly.Add(findValueInPartParamListByName("d6", listOfParameters)) 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Размер линейный (на виде спереди)", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Размер линейный (на виде спереди)"
+        addInventorValuesInAspectDataList(findValueInPartParamListByName("d6", listOfParameters))
 
-        _listAssembly.Add(findValueInPartParamListByName("d19", listOfParameters)) 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Размер линейный (на виде спереди)", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Размер линейный (на виде спереди)"
+        addInventorValuesInAspectDataList(findValueInPartParamListByName("d19", listOfParameters))
 
-        _listAssembly.Add(findValueInPartParamListByName("d14", listOfParameters)) 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Размер Ø36", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Размер Ø36"
+        addInventorValuesInAspectDataList(findValueInPartParamListByName("d14", listOfParameters))
 
-        _listAssembly.Add(getThreadsParams(partDoc)) 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Резьба наружная", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Резьба наружная"
+        addInventorValuesInAspectDataList(getThreadsParams(partDoc))
 
-        _listAssembly.Add(findValueInPartParamListByName("d24", listOfParameters)) 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Резьба наружная", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Резьба наружная"
+        addInventorValuesInAspectDataList(findValueInPartParamListByName("d24", listOfParameters))
 
-        _listAssembly.Add(findValueInPartParamListByName("d27", listOfParameters)) 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Фаска", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Фаска"
+        addInventorValuesInAspectDataList(findValueInPartParamListByName("d27", listOfParameters))
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Размер линейный (на виде слева)", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Размер линейный (на виде слева)"
+        addInventorValuesInAspectDataList("EMPTY VALUE")
 
-        _listAssembly.Add(findValueInPartParamListByName("d7", listOfParameters)) 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Размер Ø20", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Размер Ø20"
+        addInventorValuesInAspectDataList(findValueInPartParamListByName("d7", listOfParameters))
 
-        _listAssembly.Add(findValueInPartParamListByName("d8", listOfParameters)) 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Отверстие Ø8", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Отверстие Ø8"
+        addInventorValuesInAspectDataList(findValueInPartParamListByName("d8", listOfParameters))
 
-        _listAssembly.Add(findValueInPartParamListByName("d21", listOfParameters)) 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Размер □18", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Размер □18"
+        addInventorValuesInAspectDataList(findValueInPartParamListByName("d21", listOfParameters))
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Геометрия (симметрия на виде сверху, отверстие Ø36х120)", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Геометрия (симметрия на виде сверху, отверстие Ø36х120)"
+        addInventorValuesInAspectDataList("EMPTY VALUE")
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Геометрия (отверстия Ø8 симметричны на виде слева)", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Геометрия (отверстия Ø8 симметричны на виде слева)"
+        addInventorValuesInAspectDataList("EMPTY VALUE")
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Геометрия (бобышки Ø20 симметричны на виде слева)", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Геометрия (бобышки Ø20 симметричны на виде слева)"
+        addInventorValuesInAspectDataList("EMPTY VALUE")
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Геометрия (□18 ориентирован относительно осей симметрии)", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Геометрия (□18 ориентирован относительно осей симметрии)"
+        addInventorValuesInAspectDataList("EMPTY VALUE")
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Геометрия (плоскости, касательные к цилиндрам - 4 случая)", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Геометрия (плоскости, касательные к цилиндрам - 4 случая)"
+        addInventorValuesInAspectDataList("EMPTY VALUE")
     End Sub
 
     Private Sub getPart004(ByVal partDoc As Document)
@@ -702,17 +817,17 @@ Public Class Form1
 
         getFirstSameParametersOfPart(partDoc)
 
-        _listAssembly.Add(findValueInPartParamListByName("d0", listOfParameters)) 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Размер Ø12", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Размер Ø12"
+        addInventorValuesInAspectDataList(findValueInPartParamListByName("d0", listOfParameters))
 
-        _listAssembly.Add(findValueInPartParamListByName("d1", listOfParameters)) 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Размер линейный", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Размер линейный"
+        addInventorValuesInAspectDataList(findValueInPartParamListByName("d1", listOfParameters))
 
-        _listAssembly.Add(findValueInPartParamListByName("d3", listOfParameters)) 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Фаска", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Фаска"
+        addInventorValuesInAspectDataList(findValueInPartParamListByName("d3", listOfParameters))
 
-        _listAssembly.Add(findValueInPartParamListByName("d3", listOfParameters)) 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Фаска", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Фаска"
+        addInventorValuesInAspectDataList(findValueInPartParamListByName("d3", listOfParameters))
     End Sub
 
     Private Sub getPart005(ByVal partDoc As Document)
@@ -721,23 +836,23 @@ Public Class Form1
 
         getFirstSameParametersOfPart(partDoc)
 
-        _listAssembly.Add(findValueInPartParamListByName("d0", listOfParameters)) 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Размер Ø25", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Размер Ø25"
+        addInventorValuesInAspectDataList(findValueInPartParamListByName("d0", listOfParameters)) 'доб. value в _listAssembly
 
-        _listAssembly.Add(findValueInPartParamListByName("d1", listOfParameters)) 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Размер Ø12,5", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Размер Ø12,5"
+        addInventorValuesInAspectDataList(findValueInPartParamListByName("d1", listOfParameters)) 'доб. value в _listAssembly
 
-        _listAssembly.Add(findValueInPartParamListByName("d2", listOfParameters)) 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Размер линейный", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Размер линейный"
+        addInventorValuesInAspectDataList(findValueInPartParamListByName("d2", listOfParameters)) 'доб. value в _listAssembly
 
-        _listAssembly.Add(findValueInPartParamListByName("d4", listOfParameters)) 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Фаска", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Фаска"
+        addInventorValuesInAspectDataList(findValueInPartParamListByName("d4", listOfParameters)) 'доб. value в _listAssembly
 
-        _listAssembly.Add(findValueInPartParamListByName("d4", listOfParameters)) 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Фаска", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Фаска"
+        addInventorValuesInAspectDataList(findValueInPartParamListByName("d4", listOfParameters)) 'доб. value в _listAssembly
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Геометрия (соосность Ø25 и Ø12,5)", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Геометрия (соосность Ø25 и Ø12,5)"
+        addInventorValuesInAspectDataList("EMPTY VALUE") 'доб. value в _listAssembly
     End Sub
 
     Private Sub getPart006(ByVal partDoc As Document)
@@ -746,105 +861,105 @@ Public Class Form1
 
         getFirstSameParametersOfPart(partDoc)
 
-        _listAssembly.Add(findValueInPartParamListByName("d14", listOfParameters)) 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Размер Ø64", _listAssembly.Last) 'записать value в dgvAssembly
+        '«Размер Ø64"
+        addInventorValuesInAspectDataList(findValueInPartParamListByName("d14", listOfParameters))
 
-        _listAssembly.Add(findValueInPartParamListByName("d15", listOfParameters)) 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Размер Ø60", _listAssembly.Last) 'записать value в dgvAssembly
+        '«Размер Ø60"
+        addInventorValuesInAspectDataList(findValueInPartParamListByName("d15", listOfParameters))
 
-        _listAssembly.Add(findValueInPartParamListByName("d2", listOfParameters)) 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Размер линейный (на виде спереди)", _listAssembly.Last) 'записать value в dgvAssembly
+        '«Размер линейный (на виде спереди)"
+        addInventorValuesInAspectDataList(findValueInPartParamListByName("d2", listOfParameters))
 
-        _listAssembly.Add(findValueInPartParamListByName("d3", listOfParameters)) 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Размер линейный (на виде спереди)", _listAssembly.Last) 'записать value в dgvAssembly
+        '«Размер линейный (на виде спереди)"
+        addInventorValuesInAspectDataList(findValueInPartParamListByName("d3", listOfParameters))
 
-        _listAssembly.Add(findValueInPartParamListByName("d4", listOfParameters)) 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Размер линейный (на виде спереди)", _listAssembly.Last) 'записать value в dgvAssembly
+        '«Размер линейный (на виде спереди)"
+        addInventorValuesInAspectDataList(findValueInPartParamListByName("d4", listOfParameters))
 
-        _listAssembly.Add(findValueInPartParamListByName("d5", listOfParameters)) 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Размер линейный (на виде спереди)", _listAssembly.Last) 'записать value в dgvAssembly
+        '«Размер линейный (на виде спереди)"
+        addInventorValuesInAspectDataList(findValueInPartParamListByName("d5", listOfParameters))
 
-        _listAssembly.Add(findValueInPartParamListByName("d7", listOfParameters)) 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Размер Ø36", _listAssembly.Last) 'записать value в dgvAssembly
+        '«Размер Ø36"
+        addInventorValuesInAspectDataList(findValueInPartParamListByName("d7", listOfParameters))
 
-        _listAssembly.Add(findValueInPartParamListByName("d14", listOfParameters)) 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Размер Ø64 (на виде слева)", _listAssembly.Last) 'записать value в dgvAssembly
+        '«Размер Ø64 (на виде слева)"
+        addInventorValuesInAspectDataList(findValueInPartParamListByName("d14", listOfParameters))
 
-        _listAssembly.Add(findValueInPartParamListByName("d6", listOfParameters)) 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Размер Ø21", _listAssembly.Last) 'записать value в dgvAssembly
+        '«Размер Ø21"
+        addInventorValuesInAspectDataList(findValueInPartParamListByName("d6", listOfParameters))
 
-        _listAssembly.Add(getThreadsParams(partDoc)) 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Резьба (в отверстии)", _listAssembly.Last) 'записать value в dgvAssembly
+        '«Резьба (в отверстии)"
+        addInventorValuesInAspectDataList(getThreadsParams(partDoc))
 
-        _listAssembly.Add(findValueInPartParamListByName("d20", listOfParameters)) 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Размер Ø50", _listAssembly.Last) 'записать value в dgvAssembly
+        '«Размер Ø50"
+        addInventorValuesInAspectDataList(findValueInPartParamListByName("d20", listOfParameters))
 
-        _listAssembly.Add(findValueInPartParamListByName("d13", listOfParameters)) 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Размер линейный (на виде спереди)", _listAssembly.Last) 'записать value в dgvAssembly
+        '«Размер линейный (на виде спереди)"
+        addInventorValuesInAspectDataList(findValueInPartParamListByName("d13", listOfParameters))
 
-        _listAssembly.Add(findValueInPartParamListByName("d19", listOfParameters)) 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Размер R0,4", _listAssembly.Last) 'записать value в dgvAssembly
+        '«Размер R0,4"
+        addInventorValuesInAspectDataList(findValueInPartParamListByName("d19", listOfParameters))
 
-        _listAssembly.Add(findValueInPartParamListByName("d37", listOfParameters)) 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Размер линейный (проточка)", _listAssembly.Last) 'записать value в dgvAssembly
+        '«Размер линейный (проточка)"
+        addInventorValuesInAspectDataList(findValueInPartParamListByName("d37", listOfParameters))
 
-        _listAssembly.Add(findValueInPartParamListByName("d18", listOfParameters)) 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Размер линейный (проточка)", _listAssembly.Last) 'записать value в dgvAssembly
+        '«Размер линейный (проточка)"
+        addInventorValuesInAspectDataList(findValueInPartParamListByName("d18", listOfParameters))
 
-        _listAssembly.Add(findValueInPartParamListByName("d16", listOfParameters)) 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Размер угловой (проточка)", _listAssembly.Last) 'записать value в dgvAssembly
+        '«Размер угловой (проточка)"
+        addInventorValuesInAspectDataList(findValueInPartParamListByName("d16", listOfParameters))
 
-        _listAssembly.Add(findValueInPartParamListByName("d11", listOfParameters)) 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Размер Ø38", _listAssembly.Last) 'записать value в dgvAssembly
+        '«Размер Ø38"
+        addInventorValuesInAspectDataList(findValueInPartParamListByName("d11", listOfParameters))
 
-        _listAssembly.Add(findValueInPartParamListByName("d12", listOfParameters)) 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Размер линейный (на виде спереди)", _listAssembly.Last) 'записать value в dgvAssembly
+        '«Размер линейный (на виде спереди)"
+        addInventorValuesInAspectDataList(findValueInPartParamListByName("d12", listOfParameters))
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Размер линейный (на виде спереди)", _listAssembly.Last) 'записать value в dgvAssembly
+        '«Размер линейный (на виде спереди)"
+        addInventorValuesInAspectDataList("EMPTY VALUE")
 
-        _listAssembly.Add(findValueInPartParamListByName("d43", listOfParameters)) 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Фаска", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Фаска"
+        addInventorValuesInAspectDataList(findValueInPartParamListByName("d43", listOfParameters))
 
-        _listAssembly.Add(findValueInPartParamListByName("d40", listOfParameters)) 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Фаска", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Фаска"
+        addInventorValuesInAspectDataList(findValueInPartParamListByName("d40", listOfParameters))
 
+        '"Отверстие (строится инструментом отверстие)"
         Dim oHoles As HoleFeatures = partDoc.ComponentDefinition.Features.HoleFeatures
         Dim count As Integer = oHoles.Count 'если > 0, значит используется инструмент отверстие
         If count > 0 Then
-            _listAssembly.Add(True) 'доб. value в _listAssembly
+            addInventorValuesInAspectDataList(True)
         Else
-            _listAssembly.Add(False) 'доб. value в _listAssembly
+            addInventorValuesInAspectDataList(False)
         End If
-        dgvDataFromAssembly.Rows.Add("Отверстие (строится инструментом отверстие)", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add(findValueInPartParamListByName("d30", listOfParameters)) 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Отверстие Ø6", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Отверстие Ø6"
+        addInventorValuesInAspectDataList(findValueInPartParamListByName("d30", listOfParameters))
 
-        _listAssembly.Add(findValueInPartParamListByName("d35", listOfParameters)) 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Отверстие глубина 5", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Отверстие глубина 5"
+        addInventorValuesInAspectDataList(findValueInPartParamListByName("d35", listOfParameters))
 
+        '"Отверстие 4 экземпляра (круговым массивом)"
         Dim oCircularPatternFeatures As CircularPatternFeatures = partDoc.ComponentDefinition.Features.CircularPatternFeatures
         If oCircularPatternFeatures.Count = 1 Then
             'найден один круговой массив. необходимо получить количество элементов этого массива
             Dim countOfElems As Integer = oCircularPatternFeatures(1).Count.Value
             'если элементов 4 - верно, подходит условиям
             If countOfElems = 4 Then
-                _listAssembly.Add(True) 'доб. value в _listAssembly
+                addInventorValuesInAspectDataList(True)
             Else
-                _listAssembly.Add(False) 'доб. value в _listAssembly
+                addInventorValuesInAspectDataList(False)
             End If
         Else
             'круговых массивов нет, или больше одного (и то, и то неверно)
-            _listAssembly.Add(False) 'доб. value в _listAssembly
+            addInventorValuesInAspectDataList(False)
         End If
-        dgvDataFromAssembly.Rows.Add("Отверстие 4 экземпляра (круговым массивом)", _listAssembly.Last) 'записать value в dgvAssembly
 
-        _listAssembly.Add(findValueInPartParamListByName("d29", listOfParameters)) 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Размер линейный (на виде спереди, положение отверстий)", _listAssembly.Last) 'записать value в dgvAssembly
+        '«Размер линейный (на виде спереди, положение отверстий)"
+        addInventorValuesInAspectDataList(findValueInPartParamListByName("d29", listOfParameters))
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Геометрия (все цилиндрические и конические поверхности, кроме 4 отв., соосны)", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Геометрия (все цилиндрические и конические поверхности, кроме 4 отв., соосны)"
+        addInventorValuesInAspectDataList("EMPTY VALUE")
     End Sub
 
     Private Sub getPart007(ByVal partDoc As Document)
@@ -853,65 +968,65 @@ Public Class Form1
 
         getFirstSameParametersOfPart(partDoc)
 
-        _listAssembly.Add(findValueInPartParamListByName("d1", listOfParameters)) 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Размер линейный", _listAssembly.Last) 'записать value в dgvAssembly
+        '«Размер линейный"
+        addInventorValuesInAspectDataList(findValueInPartParamListByName("d1", listOfParameters))
 
-        _listAssembly.Add(findValueInPartParamListByName("d5", listOfParameters)) 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Размер Ø20", _listAssembly.Last) 'записать value в dgvAssembly
+        '«Размер Ø20"
+        addInventorValuesInAspectDataList(findValueInPartParamListByName("d5", listOfParameters))
 
-        _listAssembly.Add(findValueInPartParamListByName("d6", listOfParameters)) 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Размер Ø33", _listAssembly.Last) 'записать value в dgvAssembly
+        '«Размер Ø33"
+        addInventorValuesInAspectDataList(findValueInPartParamListByName("d6", listOfParameters))
 
-        _listAssembly.Add(findValueInPartParamListByName("d2", listOfParameters)) 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Размер линейный", _listAssembly.Last) 'записать value в dgvAssembly
+        '«Размер линейный"
+        addInventorValuesInAspectDataList(findValueInPartParamListByName("d2", listOfParameters))
 
-        _listAssembly.Add(findValueInPartParamListByName("d3", listOfParameters)) 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Размер линейный", _listAssembly.Last) 'записать value в dgvAssembly
+        '«Размер линейный"
+        addInventorValuesInAspectDataList(findValueInPartParamListByName("d3", listOfParameters))
 
-        _listAssembly.Add(findValueInPartParamListByName("d4", listOfParameters)) 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Размер линейный", _listAssembly.Last) 'записать value в dgvAssembly
+        '«Размер линейный"
+        addInventorValuesInAspectDataList(findValueInPartParamListByName("d4", listOfParameters))
 
-        _listAssembly.Add(findValueInPartParamListByName("d9", listOfParameters)) 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Размер Ø7,7", _listAssembly.Last) 'записать value в dgvAssembly
+        '«Размер Ø7,7"
+        addInventorValuesInAspectDataList(findValueInPartParamListByName("d9", listOfParameters))
 
-        _listAssembly.Add(findValueInPartParamListByName("d11", listOfParameters)) 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Размер линейный (проточка)", _listAssembly.Last) 'записать value в dgvAssembly
+        '«Размер линейный (проточка)"
+        addInventorValuesInAspectDataList(findValueInPartParamListByName("d11", listOfParameters))
 
-        _listAssembly.Add(findValueInPartParamListByName("d10", listOfParameters)) 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Размер линейный (проточка)", _listAssembly.Last) 'записать value в dgvAssembly
+        '«Размер линейный (проточка)"
+        addInventorValuesInAspectDataList(findValueInPartParamListByName("d10", listOfParameters))
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Размер угловой (проточка)", _listAssembly.Last) 'записать value в dgvAssembly
+        '«Размер угловой (проточка)"
+        addInventorValuesInAspectDataList("EMPTY VALUE")
 
-        _listAssembly.Add(findValueInPartParamListByName("d12", listOfParameters)) 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Размер R0,8", _listAssembly.Last) 'записать value в dgvAssembly
+        '«Размер R0,8"
+        addInventorValuesInAspectDataList(findValueInPartParamListByName("d12", listOfParameters))
 
-        _listAssembly.Add(findValueInPartParamListByName("d12", listOfParameters)) 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Размер R0,8", _listAssembly.Last) 'записать value в dgvAssembly
+        '«Размер R0,8"
+        addInventorValuesInAspectDataList(findValueInPartParamListByName("d12", listOfParameters))
 
-        _listAssembly.Add(getThreadsParams(partDoc)) 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Резьба наружная", _listAssembly.Last) 'записать value в dgvAssembly
+        '«Резьба наружная"
+        addInventorValuesInAspectDataList(getThreadsParams(partDoc))
 
-        _listAssembly.Add(findValueInPartParamListByName("d18", listOfParameters)) 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Размер □18", _listAssembly.Last) 'записать value в dgvAssembly
+        '«Размер □18"
+        addInventorValuesInAspectDataList(findValueInPartParamListByName("d18", listOfParameters))
 
-        _listAssembly.Add(findValueInPartParamListByName("d13", listOfParameters)) 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Фаска", _listAssembly.Last) 'записать value в dgvAssembly
+        '«Фаска"
+        addInventorValuesInAspectDataList(findValueInPartParamListByName("d13", listOfParameters))
 
-        _listAssembly.Add(findValueInPartParamListByName("d13", listOfParameters)) 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Фаска", _listAssembly.Last) 'записать value в dgvAssembly
+        '«Фаска"
+        addInventorValuesInAspectDataList(findValueInPartParamListByName("d13", listOfParameters))
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Геометрия (□18 ориентирован относительно осей симметрии)", _listAssembly.Last) 'записать value в dgvAssembly
+        '«Геометрия (□18 ориентирован относительно осей симметрии)"
+        addInventorValuesInAspectDataList("EMPTY VALUE")
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Геометрия (все цилиндрические и конические поверхности соосны)", _listAssembly.Last) 'записать value в dgvAssembly
+        '«Геометрия (все цилиндрические и конические поверхности соосны)"
+        addInventorValuesInAspectDataList("EMPTY VALUE")
     End Sub
 
     Private Sub getAsm(ByVal asmDoc As Document)
         Dim occ As ComponentOccurrence
 
-        'Деталь 05.01.003 Корпус закреплена (0 степеней свободы)
+        '"Деталь 05.01.003 Корпус закреплена (0 степеней свободы)"
         Dim result As String = "EMPTY VALUE"
         For Each occ In asmDoc.ComponentDefinition.Occurrences 'occ - свойства part document (1..n) В assembly, их (документов) перебор
             'если деталь "05.01.003"
@@ -920,56 +1035,55 @@ Public Class Form1
                 Exit For
             End If
         Next
-        _listAssembly.Add(result) 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Деталь 05.01.003 Корпус закреплена (0 степеней свободы)", _listAssembly.Last) 'записать value в dgvAssembly
+        addInventorValuesInAspectDataList(result)
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Зависимости в паре 05.01.001 Вилка и 05.01.004 Ось (ось 004 совпадает с осью отверстия 001)", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Зависимости в паре 05.01.001 Вилка и 05.01.004 Ось (ось 004 совпадает с осью отверстия 001)"
+        addInventorValuesInAspectDataList("EMPTY VALUE")
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Зависимости в паре 05.01.001 Вилка и 05.01.004 Ось (ограничение перемещения 004 вдоль оси)", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Зависимости в паре 05.01.001 Вилка и 05.01.004 Ось (ограничение перемещения 004 вдоль оси)"
+        addInventorValuesInAspectDataList("EMPTY VALUE")
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Зависимости в паре 05.01.001 Вилка и 05.01.005 Ролик (ось 005 совпадает с осью отверстия 001 или с осью 004)", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Зависимости в паре 05.01.001 Вилка и 05.01.005 Ролик (ось 005 совпадает с осью отверстия 001 или с осью 004)"
+        addInventorValuesInAspectDataList("EMPTY VALUE")
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Зависимости в паре 05.01.001 Вилка и 05.01.005 Ролик (ограничение перемещения 005 вдоль оси)", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Зависимости в паре 05.01.001 Вилка и 05.01.005 Ролик (ограничение перемещения 005 вдоль оси)"
+        addInventorValuesInAspectDataList("EMPTY VALUE")
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Зависимости в паре 05.01.001 Вилка и 05.01.007 Шток (ось резьбы 001 совпадает с осью резьбы 007)", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Зависимости в паре 05.01.001 Вилка и 05.01.007 Шток (ось резьбы 001 совпадает с осью резьбы 007)"
+        addInventorValuesInAspectDataList("EMPTY VALUE")
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Зависимости в паре 05.01.001 Вилка и 05.01.007 Шток (плоскость 001 совпадает с плоскостью 007)", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Зависимости в паре 05.01.001 Вилка и 05.01.007 Шток (плоскость 001 совпадает с плоскостью 007)"
+        addInventorValuesInAspectDataList("EMPTY VALUE")
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Зависимости в паре 05.01.001 Вилка и 05.01.007 Шток (угол поворота 001 относительно 007 указан)", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Зависимости в паре 05.01.001 Вилка и 05.01.007 Шток (угол поворота 001 относительно 007 указан)"
+        addInventorValuesInAspectDataList("EMPTY VALUE")
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Зависимости в паре 05.01.003 Корпус и 05.01.007 Шток (ось цилиндра 003 совпадает с осью цилиндра 007, или две плоскости □18 на 003 и на 007 совпадают)", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Зависимости в паре 05.01.003 Корпус и 05.01.007 Шток (ось цилиндра 003 совпадает с осью цилиндра 007, или две плоскости □18 на 003 и на 007 совпадают)"
+        addInventorValuesInAspectDataList("EMPTY VALUE")
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Зависимости в паре 05.01.003 Корпус и 05.01.007 Шток (ось цилиндра 003 совпадает с осью цилиндра 007 и по одной плоскости □18 совпадают или указан угол поворота, или две плоскости □18 на 003 и на 007 совпадают)", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Зависимости в паре 05.01.003 Корпус и 05.01.007 Шток (ось цилиндра 003 совпадает с осью цилиндра 007 и по одной плоскости □18 совпадают или указан угол поворота, или две плоскости □18 на 003 и на 007 совпадают)"
+        addInventorValuesInAspectDataList("EMPTY VALUE")
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Зависимости в паре 05.01.003 Корпус и 05.01.007 Шток (007 упирается в 003 буртиком Ø33 (совпадение плоскостей))", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Зависимости в паре 05.01.003 Корпус и 05.01.007 Шток (007 упирается в 003 буртиком Ø33 (совпадение плоскостей))"
+        addInventorValuesInAspectDataList("EMPTY VALUE")
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Зависимости в паре 05.01.002 Гайка и 05.01.003 Корпус (цилиндры 002 соосны резьбе 003)", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Зависимости в паре 05.01.002 Гайка и 05.01.003 Корпус (цилиндры 002 соосны резьбе 003)"
+        addInventorValuesInAspectDataList("EMPTY VALUE")
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Зависимости в паре 05.01.002 Гайка и 05.01.003 Корпус (плоскость (торец) гайки 002 находится в указанной позиции относительно резьбы на 003 (координата вычисляема))", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Зависимости в паре 05.01.002 Гайка и 05.01.003 Корпус (плоскость (торец) гайки 002 находится в указанной позиции относительно резьбы на 003 (координата вычисляема))"
+        addInventorValuesInAspectDataList("EMPTY VALUE")
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Зависимости в паре 05.01.002 Гайка и 05.01.003 Корпус (угловое положение 002 относительно 003)", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Зависимости в паре 05.01.002 Гайка и 05.01.003 Корпус (угловое положение 002 относительно 003)"
+        addInventorValuesInAspectDataList("EMPTY VALUE")
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Зависимости в паре 05.01.006 Стакан и 05.01.002 Гайка (или 003 Корпус, или 007 Шток) (соосность цилиндрических поверхностей)", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Зависимости в паре 05.01.006 Стакан и 05.01.002 Гайка (или 003 Корпус, или 007 Шток) (соосность цилиндрических поверхностей)"
+        addInventorValuesInAspectDataList("EMPTY VALUE")
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Зависимости в паре 05.01.006 Стакан и 05.01.002 Гайка (совпадение плоскостей (торцев) 006 Стакан и 002 Гайка)", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Зависимости в паре 05.01.006 Стакан и 05.01.002 Гайка (совпадение плоскостей (торцев) 006 Стакан и 002 Гайка)"
+        addInventorValuesInAspectDataList("EMPTY VALUE")
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Зависимости в паре 05.01.006 Стакан и 05.01.002 Гайка (угловое положение 006 относительно 002)", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Зависимости в паре 05.01.006 Стакан и 05.01.002 Гайка (угловое положение 006 относительно 002)"
+        addInventorValuesInAspectDataList("EMPTY VALUE")
     End Sub
 
     Private Sub getDrawing007(ByVal drawingDoc As Document)
@@ -985,13 +1099,13 @@ Public Class Form1
         'MsgBox(str)
         'end
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Выбор ориентации детали (протяженная, большая часть поверхностей цилиндры)", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Выбор ориентации детали (протяженная, большая часть поверхностей цилиндры)"
+        addInventorValuesInAspectDataList("EMPTY VALUE")
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Выбор главного вида (в данном случае учитывается ориентация осей)", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Выбор главного вида (в данном случае учитывается ориентация осей)"
+        addInventorValuesInAspectDataList("EMPTY VALUE")
 
-        'Выбор формата листа
+        '"Выбор формата листа"
         Dim result As String = "EMPTY VALUE"
         If oSheet.Size = DrawingSheetSizeEnum.kA4DrawingSheetSize Then
             result = "А4"
@@ -1000,102 +1114,125 @@ Public Class Form1
         Else
             result = "Другой формат"
         End If
-        _listAssembly.Add(result)
-        dgvDataFromAssembly.Rows.Add("Выбор формата листа", _listAssembly.Last)
+        addInventorValuesInAspectDataList(result)
 
-        'Выбор масштаба главного вида
+        '"Выбор масштаба главного вида"
         result = "EMPTY VALUE"
         Dim oPropSets As PropertySets = drawingDoc.PropertySets
         Dim oPropSetGOST As PropertySet = oPropSets.Item("Свойства ГОСТ")
         result = oPropSetGOST.Item("Масштаб").Value
-        _listAssembly.Add(result)
-        dgvDataFromAssembly.Rows.Add("Выбор масштаба главного вида", _listAssembly.Last)
+        addInventorValuesInAspectDataList(result)
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Как разместить главный вид на листе формата А4? Сделать разрыв", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Как разместить главный вид на листе формата А4? Сделать разрыв"
+        addInventorValuesInAspectDataList("EMPTY VALUE")
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("На главном виде отобразается плоскость □18. Перекрестие", _listAssembly.Last) 'записать value в dgvAssembly
+        '"На главном виде отобразается плоскость □18. Перекрестие"
+        addInventorValuesInAspectDataList("EMPTY VALUE")
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Главный вид □18. Перекрестие. Отдельный эскиз.", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Главный вид □18. Перекрестие. Отдельный эскиз."
+        addInventorValuesInAspectDataList("EMPTY VALUE")
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Главный вид □18. Перекрестие. Отдельный эскиз. Вес линий.", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Главный вид □18. Перекрестие. Отдельный эскиз. Вес линий."
+        addInventorValuesInAspectDataList("EMPTY VALUE")
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Деталь симметрична на главном виде. Наличие осевой во всю длину проекции +5 мм за пределы контура.", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Деталь симметрична на главном виде. Наличие осевой во всю длину проекции +5 мм за пределы контура."
+        addInventorValuesInAspectDataList("EMPTY VALUE")
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Размер линейный (габаритный)", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Размер линейный (габаритный)"
+        addInventorValuesInAspectDataList("EMPTY VALUE")
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Размер Ø20", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Размер Ø20"
+        addInventorValuesInAspectDataList("EMPTY VALUE")
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Размер Ø33", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Размер Ø33"
+        addInventorValuesInAspectDataList("EMPTY VALUE")
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Размер линейный (на виде спереди)", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Размер линейный (на виде спереди)"
+        addInventorValuesInAspectDataList("EMPTY VALUE")
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Размер линейный (на виде спереди)", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Размер линейный (на виде спереди)"
+        addInventorValuesInAspectDataList("EMPTY VALUE")
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Размер линейный (на виде спереди)", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Размер линейный (на виде спереди)"
+        addInventorValuesInAspectDataList("EMPTY VALUE")
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Резьба наружная", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Резьба наружная"
+        addInventorValuesInAspectDataList("EMPTY VALUE")
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Фаска", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Фаска"
+        addInventorValuesInAspectDataList("EMPTY VALUE")
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Размер □18 не может быть указан -> Разрез", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Размер □18 не может быть указан -> Разрез"
+        addInventorValuesInAspectDataList("EMPTY VALUE")
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Разрез находится за пределами листа -> Отключение выравнивания", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Разрез находится за пределами листа -> Отключение выравнивания"
+        addInventorValuesInAspectDataList("EMPTY VALUE")
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Разрез помещён на свободное пространство листа", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Разрез помещён на свободное пространство листа"
+        addInventorValuesInAspectDataList("EMPTY VALUE")
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Геометрия на виде симметрична относительно двух осей (+окружность) -> 2 осевых линии", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Геометрия на виде симметрична относительно двух осей (+окружность) -> 2 осевых линии"
+        addInventorValuesInAspectDataList("EMPTY VALUE")
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Разрез. Масштаб (1:1) совпадает с масштабом главного вида -> удаляем (1:1) после А-А", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Разрез. Масштаб (1:1) совпадает с масштабом главного вида -> удаляем (1:1) после А-А"
+        addInventorValuesInAspectDataList("EMPTY VALUE")
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Размер □18", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Размер □18"
+        addInventorValuesInAspectDataList("EMPTY VALUE")
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Размеры проточки на главном виде не удастся показать -> Выносной вид", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Размеры проточки на главном виде не удастся показать -> Выносной вид"
+        addInventorValuesInAspectDataList("EMPTY VALUE")
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("По умолчанию наименование вида B (лат.) -> меняем на Б", _listAssembly.Last) 'записать value в dgvAssembly
+        '"По умолчанию наименование вида B (лат.) -> меняем на Б"
+        addInventorValuesInAspectDataList("EMPTY VALUE")
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("По умолчанию масштаб вида Б устанавливается равным 2:1, для размещения всех необходимых размеров изменяем его на 4:1", _listAssembly.Last) 'записать value в dgvAssembly
+        '"По умолчанию масштаб вида Б устанавливается равным 2:1, для размещения всех необходимых размеров изменяем его на 4:1"
+        addInventorValuesInAspectDataList("EMPTY VALUE")
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Чтобы показать линии перехода в местах скруглений разрываем связь стиля вида Б с главным видом", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Чтобы показать линии перехода в местах скруглений разрываем связь стиля вида Б с главным видом"
+        addInventorValuesInAspectDataList("EMPTY VALUE")
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("В параметрах отображения вида Б включаем линии перехода", _listAssembly.Last) 'записать value в dgvAssembly
+        '"В параметрах отображения вида Б включаем линии перехода"
+        addInventorValuesInAspectDataList("EMPTY VALUE")
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Размер R0,8 (2 места)", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Размер R0,8 (2 места)"
+        addInventorValuesInAspectDataList("EMPTY VALUE")
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Размер Ø7,7", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Размер Ø7,7"
+        addInventorValuesInAspectDataList("EMPTY VALUE")
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Размер линейный на виде Б (2,49 округлить до 2,5)", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Размер линейный на виде Б (2,49 округлить до 2,5)"
+        addInventorValuesInAspectDataList("EMPTY VALUE")
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Размер линейный на виде Б", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Размер линейный на виде Б"
+        addInventorValuesInAspectDataList("EMPTY VALUE")
 
-        _listAssembly.Add("EMPTY VALUE") 'доб. value в _listAssembly
-        dgvDataFromAssembly.Rows.Add("Заполнение основной надписи", _listAssembly.Last) 'записать value в dgvAssembly
+        '"Заполнение основной надписи"
+        addInventorValuesInAspectDataList("EMPTY VALUE")
     End Sub
+
+    'НЕАКТУЛЬНАЯ вспомогательная функция: заменить в структуре типа AspectData значение, получаемое из Inventor (2 последних столбца)
+    'неактуальная потому, что имена аспектов не уникальные
+    'Private Sub changeValueFromInventorInAspectDataList(ByVal text As String, ByVal value As String)
+    '    For Each aspect As AspectData In _listAspects
+    '        If aspect.text = text Then
+    '            aspect.valueFromInventor = value
+
+    '            'подсчет дельты
+    '            Try
+    '                aspect.delta = Math.Abs((aspect.valueFromExcel - aspect.valueFromInventor) / aspect.valueFromExcel)
+    '            Catch ex As Exception
+    '                aspect.delta = 0
+    '            End Try
+
+    '            'увеличить счетчик считанных свойств из Inventor
+    '            Dim c As Integer = CInt(lblCountOfAssembly.Text)
+    '            c += 1
+    '            lblCountOfAssembly.Text = c
+
+    '            Exit For
+    '        End If
+    '    Next
+    'End Sub
+
 End Class

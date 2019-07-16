@@ -30,20 +30,18 @@ Partial Class Form1
         Me.tbExcelDirectory = New System.Windows.Forms.TextBox()
         Me.btnCompare = New System.Windows.Forms.Button()
         Me.btnClearAll = New System.Windows.Forms.Button()
-        Me.dgvDataFromAssembly = New System.Windows.Forms.DataGridView()
         Me.btnGetDataFromAssembly = New System.Windows.Forms.Button()
-        Me.dgvDataFromExcel = New System.Windows.Forms.DataGridView()
+        Me.dgvAspects = New System.Windows.Forms.DataGridView()
         Me.btnGetDataFromExcel = New System.Windows.Forms.Button()
         Me.lblLoading = New System.Windows.Forms.Label()
-        CType(Me.dgvDataFromAssembly, System.ComponentModel.ISupportInitialize).BeginInit()
-        CType(Me.dgvDataFromExcel, System.ComponentModel.ISupportInitialize).BeginInit()
+        CType(Me.dgvAspects, System.ComponentModel.ISupportInitialize).BeginInit()
         Me.SuspendLayout()
         '
         'lblCountOfAssembly
         '
         Me.lblCountOfAssembly.Anchor = CType((System.Windows.Forms.AnchorStyles.Top Or System.Windows.Forms.AnchorStyles.Right), System.Windows.Forms.AnchorStyles)
         Me.lblCountOfAssembly.AutoSize = True
-        Me.lblCountOfAssembly.Location = New System.Drawing.Point(617, 73)
+        Me.lblCountOfAssembly.Location = New System.Drawing.Point(859, 73)
         Me.lblCountOfAssembly.Name = "lblCountOfAssembly"
         Me.lblCountOfAssembly.Size = New System.Drawing.Size(13, 13)
         Me.lblCountOfAssembly.TabIndex = 23
@@ -62,7 +60,7 @@ Partial Class Form1
         '
         Me.Label2.Anchor = CType((System.Windows.Forms.AnchorStyles.Top Or System.Windows.Forms.AnchorStyles.Right), System.Windows.Forms.AnchorStyles)
         Me.Label2.AutoSize = True
-        Me.Label2.Location = New System.Drawing.Point(440, 73)
+        Me.Label2.Location = New System.Drawing.Point(682, 73)
         Me.Label2.Name = "Label2"
         Me.Label2.Size = New System.Drawing.Size(171, 13)
         Me.Label2.TabIndex = 21
@@ -117,23 +115,8 @@ Partial Class Form1
         Me.btnClearAll.Name = "btnClearAll"
         Me.btnClearAll.Size = New System.Drawing.Size(148, 23)
         Me.btnClearAll.TabIndex = 16
-        Me.btnClearAll.Text = "Очистить обе таблицы"
+        Me.btnClearAll.Text = "Очистить таблицу"
         Me.btnClearAll.UseVisualStyleBackColor = True
-        '
-        'dgvDataFromAssembly
-        '
-        Me.dgvDataFromAssembly.AllowUserToAddRows = False
-        Me.dgvDataFromAssembly.AllowUserToDeleteRows = False
-        Me.dgvDataFromAssembly.Anchor = CType(((System.Windows.Forms.AnchorStyles.Top Or System.Windows.Forms.AnchorStyles.Bottom) _
-            Or System.Windows.Forms.AnchorStyles.Right), System.Windows.Forms.AnchorStyles)
-        Me.dgvDataFromAssembly.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize
-        Me.dgvDataFromAssembly.ColumnHeadersVisible = False
-        Me.dgvDataFromAssembly.Location = New System.Drawing.Point(443, 89)
-        Me.dgvDataFromAssembly.Name = "dgvDataFromAssembly"
-        Me.dgvDataFromAssembly.ReadOnly = True
-        Me.dgvDataFromAssembly.RowHeadersVisible = False
-        Me.dgvDataFromAssembly.Size = New System.Drawing.Size(429, 430)
-        Me.dgvDataFromAssembly.TabIndex = 15
         '
         'btnGetDataFromAssembly
         '
@@ -145,21 +128,20 @@ Partial Class Form1
         Me.btnGetDataFromAssembly.Text = "Имопрт данных из сборки (*.iam)"
         Me.btnGetDataFromAssembly.UseVisualStyleBackColor = True
         '
-        'dgvDataFromExcel
+        'dgvAspects
         '
-        Me.dgvDataFromExcel.AllowUserToAddRows = False
-        Me.dgvDataFromExcel.AllowUserToDeleteRows = False
-        Me.dgvDataFromExcel.Anchor = CType((((System.Windows.Forms.AnchorStyles.Top Or System.Windows.Forms.AnchorStyles.Bottom) _
+        Me.dgvAspects.AllowUserToAddRows = False
+        Me.dgvAspects.AllowUserToDeleteRows = False
+        Me.dgvAspects.Anchor = CType((((System.Windows.Forms.AnchorStyles.Top Or System.Windows.Forms.AnchorStyles.Bottom) _
             Or System.Windows.Forms.AnchorStyles.Left) _
             Or System.Windows.Forms.AnchorStyles.Right), System.Windows.Forms.AnchorStyles)
-        Me.dgvDataFromExcel.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize
-        Me.dgvDataFromExcel.ColumnHeadersVisible = False
-        Me.dgvDataFromExcel.Location = New System.Drawing.Point(12, 89)
-        Me.dgvDataFromExcel.Name = "dgvDataFromExcel"
-        Me.dgvDataFromExcel.ReadOnly = True
-        Me.dgvDataFromExcel.RowHeadersVisible = False
-        Me.dgvDataFromExcel.Size = New System.Drawing.Size(425, 430)
-        Me.dgvDataFromExcel.TabIndex = 13
+        Me.dgvAspects.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize
+        Me.dgvAspects.Location = New System.Drawing.Point(12, 89)
+        Me.dgvAspects.Name = "dgvAspects"
+        Me.dgvAspects.ReadOnly = True
+        Me.dgvAspects.RowHeadersVisible = False
+        Me.dgvAspects.Size = New System.Drawing.Size(860, 430)
+        Me.dgvAspects.TabIndex = 13
         '
         'btnGetDataFromExcel
         '
@@ -200,15 +182,13 @@ Partial Class Form1
         Me.Controls.Add(Me.tbExcelDirectory)
         Me.Controls.Add(Me.btnCompare)
         Me.Controls.Add(Me.btnClearAll)
-        Me.Controls.Add(Me.dgvDataFromAssembly)
         Me.Controls.Add(Me.btnGetDataFromAssembly)
-        Me.Controls.Add(Me.dgvDataFromExcel)
+        Me.Controls.Add(Me.dgvAspects)
         Me.Controls.Add(Me.btnGetDataFromExcel)
         Me.Name = "Form1"
         Me.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen
         Me.Text = "VBA3"
-        CType(Me.dgvDataFromAssembly, System.ComponentModel.ISupportInitialize).EndInit()
-        CType(Me.dgvDataFromExcel, System.ComponentModel.ISupportInitialize).EndInit()
+        CType(Me.dgvAspects, System.ComponentModel.ISupportInitialize).EndInit()
         Me.ResumeLayout(False)
         Me.PerformLayout()
 
@@ -222,9 +202,8 @@ Partial Class Form1
     Friend WithEvents tbExcelDirectory As TextBox
     Friend WithEvents btnCompare As Button
     Friend WithEvents btnClearAll As Button
-    Friend WithEvents dgvDataFromAssembly As DataGridView
     Friend WithEvents btnGetDataFromAssembly As Button
-    Friend WithEvents dgvDataFromExcel As DataGridView
+    Friend WithEvents dgvAspects As DataGridView
     Friend WithEvents btnGetDataFromExcel As Button
     Friend WithEvents lblLoading As Label
 End Class
