@@ -34,6 +34,7 @@ Partial Class Form1
         Me.dgvAspects = New System.Windows.Forms.DataGridView()
         Me.btnGetDataFromExcel = New System.Windows.Forms.Button()
         Me.lblLoading = New System.Windows.Forms.Label()
+        Me.btnExportToExcel = New System.Windows.Forms.Button()
         CType(Me.dgvAspects, System.ComponentModel.ISupportInitialize).BeginInit()
         Me.SuspendLayout()
         '
@@ -102,7 +103,7 @@ Partial Class Form1
         Me.btnCompare.ForeColor = System.Drawing.Color.Black
         Me.btnCompare.Location = New System.Drawing.Point(12, 525)
         Me.btnCompare.Name = "btnCompare"
-        Me.btnCompare.Size = New System.Drawing.Size(706, 23)
+        Me.btnCompare.Size = New System.Drawing.Size(552, 23)
         Me.btnCompare.TabIndex = 17
         Me.btnCompare.Text = "Сравнить"
         Me.btnCompare.UseVisualStyleBackColor = True
@@ -167,12 +168,24 @@ Partial Class Form1
         Me.lblLoading.TextAlign = System.Drawing.ContentAlignment.MiddleCenter
         Me.lblLoading.Visible = False
         '
+        'btnExportToExcel
+        '
+        Me.btnExportToExcel.Anchor = CType((System.Windows.Forms.AnchorStyles.Bottom Or System.Windows.Forms.AnchorStyles.Right), System.Windows.Forms.AnchorStyles)
+        Me.btnExportToExcel.ForeColor = System.Drawing.Color.Black
+        Me.btnExportToExcel.Location = New System.Drawing.Point(570, 525)
+        Me.btnExportToExcel.Name = "btnExportToExcel"
+        Me.btnExportToExcel.Size = New System.Drawing.Size(148, 23)
+        Me.btnExportToExcel.TabIndex = 25
+        Me.btnExportToExcel.Text = "Экспорт в Excel"
+        Me.btnExportToExcel.UseVisualStyleBackColor = True
+        '
         'Form1
         '
         Me.AutoScaleDimensions = New System.Drawing.SizeF(6.0!, 13.0!)
         Me.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font
         Me.BackColor = System.Drawing.Color.White
         Me.ClientSize = New System.Drawing.Size(884, 561)
+        Me.Controls.Add(Me.btnExportToExcel)
         Me.Controls.Add(Me.lblLoading)
         Me.Controls.Add(Me.lblCountOfAssembly)
         Me.Controls.Add(Me.lblCountOfExcel)
@@ -206,4 +219,5 @@ Partial Class Form1
     Friend WithEvents dgvAspects As DataGridView
     Friend WithEvents btnGetDataFromExcel As Button
     Friend WithEvents lblLoading As Label
+    Friend WithEvents btnExportToExcel As Button
 End Class

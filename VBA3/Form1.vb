@@ -27,7 +27,7 @@ Public Class Form1
 
     'глобальные переменные
     Dim _invApplication As Application = Nothing 'приложение Inventor
-    Dim _openFileDialog As New OpenFileDialog 'диалог выбора файла
+    Dim _openFileDialog As New OpenFileDialog 'диалог выбора файла    
     Dim _conn As OleDb.OleDbConnection 'подключение к источнику данных
     Dim _listAspects As New List(Of AspectData)() 'список для хранения всех данных: из excel, из inventor
     Dim _excelCellsRead As String = "F14:K225" 'какие ячейки считывать из excel
@@ -63,7 +63,6 @@ Public Class Form1
         'увеличить форму на весь экран
         Me.WindowState = FormWindowState.Maximized
         'Me.FormBorderStyle = FormBorderStyle.None
-        'Me.TopMost = True
     End Sub
 
     'функция запускается, как только форма загружена.
@@ -93,6 +92,7 @@ Public Class Form1
     'функция вызывается по нажатию кнопки "Импорт данных из Excel (*.xlsx, *.xls)"
     Private Sub btnImportFromExcel_Click(sender As Object, e As EventArgs) Handles btnGetDataFromExcel.Click
         'выбрать файл excel
+        Dim _openFileDialog As New OpenFileDialog
         Dim fullName As String = ""
         Try
             _openFileDialog.InitialDirectory = My.Computer.FileSystem.SpecialDirectories.Desktop
@@ -312,44 +312,44 @@ Public Class Form1
         Dim total_points As Double = 0
         If (_listAspects.Count = 0 Or lblCountOfAssembly.Text = 0) Then
             MsgBox("Сначала необходимо считать данные из эксель и сборки")
-            Return
-        Else
-            Dim style_wrong As New DataGridViewCellStyle
-            style_wrong.BackColor = Drawing.Color.LightCoral
-            Dim style_full_right As New DataGridViewCellStyle
-            style_full_right.BackColor = Drawing.Color.Green
-            Dim style_right As New DataGridViewCellStyle
-            style_right.BackColor = Drawing.Color.LightGreen
+            Return 'выход из функции обработчика кнопки
+        End If
 
-            For i = 0 To (_listAspects.Count - 1)
-                If (_listAspects(i).valueFromExcel = _listAspects(i).valueFromInventor) Then
-                    'если значения точно совпадают, ответ верный
-                    dgvAspects.Rows(i).DefaultCellStyle = style_full_right
-                    total_points += _listAspects(i).weight
-                Else
-                    Dim valueFromInventor, valueFromExcel As Double
-                    'значения не совпадают, необходимо проверить точность (если возможно)
-                    If Double.TryParse(_listAspects(i).valueFromInventor, valueFromInventor) And Double.TryParse(_listAspects(i).valueFromExcel, valueFromExcel) Then
-                        'если допустимое отклонение больше, чем текущее отклонение, ответ верный
-                        If (_listAspects(i).tolerance > _listAspects(i).delta) Then
-                            'ответ верный, в пределах отклонения (но не точный)
-                            dgvAspects.Rows(i).DefaultCellStyle = style_right
-                            total_points += _listAspects(i).weight
-                        Else
-                            'ответ не верный
-                            correct = False
-                            errors += 1
-                            dgvAspects.Rows(i).DefaultCellStyle = style_wrong
-                        End If
+        Dim style_wrong As New DataGridViewCellStyle
+        style_wrong.BackColor = Drawing.Color.LightCoral
+        Dim style_full_right As New DataGridViewCellStyle
+        style_full_right.BackColor = Drawing.Color.Green
+        Dim style_right As New DataGridViewCellStyle
+        style_right.BackColor = Drawing.Color.LightGreen
+
+        For i = 0 To (_listAspects.Count - 1)
+            If (_listAspects(i).valueFromExcel = _listAspects(i).valueFromInventor) Then
+                'если значения точно совпадают, ответ верный
+                dgvAspects.Rows(i).DefaultCellStyle = style_full_right
+                total_points += _listAspects(i).weight
+            Else
+                Dim valueFromInventor, valueFromExcel As Double
+                'значения не совпадают, необходимо проверить точность (если возможно)
+                If Double.TryParse(_listAspects(i).valueFromInventor, valueFromInventor) And Double.TryParse(_listAspects(i).valueFromExcel, valueFromExcel) Then
+                    'если допустимое отклонение больше, чем текущее отклонение, ответ верный
+                    If (_listAspects(i).tolerance > _listAspects(i).delta) Then
+                        'ответ верный, в пределах отклонения (но не точный)
+                        dgvAspects.Rows(i).DefaultCellStyle = style_right
+                        total_points += _listAspects(i).weight
                     Else
-                        'значение - не число, нет смысла проверять точность, ответ неверный
+                        'ответ не верный
                         correct = False
                         errors += 1
                         dgvAspects.Rows(i).DefaultCellStyle = style_wrong
                     End If
+                Else
+                    'значение - не число, нет смысла проверять точность, ответ неверный
+                    correct = False
+                    errors += 1
+                    dgvAspects.Rows(i).DefaultCellStyle = style_wrong
                 End If
-            Next
-        End If
+            End If
+        Next
 
         If (correct = True) Then
             MsgBox("Не найдено ни одной ошибки" & vbCrLf & "Всего набрано баллов: " & total_points)
@@ -372,6 +372,89 @@ Public Class Form1
             tbAssemblyDirectory.Clear()
             lblCountOfExcel.Text = "0"
             lblCountOfAssembly.Text = "0"
+        End If
+    End Sub
+
+    'функция по нажатию кнопки "экспорт в эксель"
+    Private Sub btnExportToExcel_Click(sender As Object, e As EventArgs) Handles btnExportToExcel.Click
+        'проверка, имеются ли данные в dgv
+        If (dgvAspects.Rows.Count = 0) Then
+            MsgBox("Таблица пуста, экспорт невозможен")
+            Return 'выход из функции обработчика кнопки
+        End If
+
+        'выбрать место сохрания файла excel
+        Dim saveFileDialog As New SaveFileDialog 'диалог выбора места сохранения файла
+        saveFileDialog.InitialDirectory = My.Computer.FileSystem.SpecialDirectories.Desktop
+        saveFileDialog.Filter = "Excel Files(2007)|*.xlsx|Excel Files(2003)|*.xls"
+        saveFileDialog.Title = "Save Excel File"
+        saveFileDialog.ShowDialog()
+
+        'если получена директория
+        If (Not String.IsNullOrEmpty(saveFileDialog.FileName)) Then
+            'Создание dataset для экспорта
+            Dim dset As New DataSet
+            dset.Tables.Add() 'добавить таблицу
+
+            'добавление столбцов в эту таблицу
+            For i As Integer = 0 To dgvAspects.ColumnCount - 1
+                dset.Tables(0).Columns.Add(dgvAspects.Columns(i).HeaderText)
+            Next
+
+            'добавление строк в эту таблицу
+            Dim dr1 As DataRow
+            For i As Integer = 0 To dgvAspects.RowCount - 1
+                dr1 = dset.Tables(0).NewRow
+                For j As Integer = 0 To dgvAspects.Columns.Count - 1
+                    dr1(j) = dgvAspects.Rows(i).Cells(j).Value
+                Next
+                dset.Tables(0).Rows.Add(dr1)
+            Next
+
+            Dim exl As New Excel.Application
+            Dim exlBook As Excel.Workbook
+            Dim exlSheet As Excel.Worksheet
+
+            exlBook = exl.Workbooks.Add()
+            exlSheet = exlBook.ActiveSheet()
+
+            Dim dt As DataTable = dset.Tables(0)
+            Dim dc As DataColumn
+            Dim dr As DataRow
+            Dim colIndex As Integer = 0
+            Dim rowIndex As Integer = 0
+
+            For Each dc In dt.Columns
+                colIndex = colIndex + 1
+                exl.Cells(1, colIndex) = dc.ColumnName
+            Next
+
+            For Each dr In dt.Rows
+                rowIndex = rowIndex + 1
+                colIndex = 0
+                For Each dc In dt.Columns
+                    colIndex = colIndex + 1
+                    exl.Cells(rowIndex + 1, colIndex) = dr(dc.ColumnName)
+                Next
+            Next
+
+            exlSheet.Columns.AutoFit()
+            Dim strFileName As String = saveFileDialog.FileName
+            Dim blnFileOpen As Boolean = False
+            Try
+                Dim fileTemp As System.IO.FileStream = System.IO.File.OpenWrite(strFileName)
+                fileTemp.Close()
+            Catch ex As Exception
+                blnFileOpen = False
+            End Try
+
+            If System.IO.File.Exists(strFileName) Then
+                System.IO.File.Delete(strFileName)
+            End If
+
+            exlBook.SaveAs(strFileName)
+            exl.Workbooks.Open(strFileName)
+            exl.Visible = True
         End If
     End Sub
 
