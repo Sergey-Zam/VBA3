@@ -126,7 +126,7 @@ Partial Class Form1
         Me.btnGetDataFromAssembly.Name = "btnGetDataFromAssembly"
         Me.btnGetDataFromAssembly.Size = New System.Drawing.Size(216, 23)
         Me.btnGetDataFromAssembly.TabIndex = 14
-        Me.btnGetDataFromAssembly.Text = "Имопрт данных из сборки (*.iam)"
+        Me.btnGetDataFromAssembly.Text = "Импорт данных из сборки (*.iam)"
         Me.btnGetDataFromAssembly.UseVisualStyleBackColor = True
         '
         'dgvAspects

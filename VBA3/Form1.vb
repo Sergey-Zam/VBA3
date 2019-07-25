@@ -30,7 +30,7 @@ Public Class Form1
     Dim _openFileDialog As New OpenFileDialog 'диалог выбора файла    
     Dim _conn As OleDb.OleDbConnection 'подключение к источнику данных
     Dim _listAspects As New List(Of AspectData)() 'список для хранения всех данных: из excel, из inventor
-    Dim _excelCellsRead As String = "F14:K225" 'какие ячейки считывать из excel
+    Dim _excelCellsRead As String = "F14:K232" 'какие ячейки считывать из excel
     Dim _countOfExcelСolumns = 6 'количество столбцов, берущих данные из Excel
     Dim _counterForInventorAspects = 0 'счетчик, увеличивающийся при занесении записей из Inventor в _listAspects
 
@@ -40,26 +40,6 @@ Public Class Form1
         InitializeComponent()
 
         'ниже размещается любой инициализирующий код.
-        'добавить столбцы к dgvAspects
-        dgvAspects.ColumnCount = 8
-        'и задать им ширину, заголовки
-        dgvAspects.Columns(0).Width = 300
-        dgvAspects.Columns(0).HeaderText = "Аспект"
-        dgvAspects.Columns(1).Width = 200
-        dgvAspects.Columns(1).HeaderText = "Значение (из Excel)"
-        dgvAspects.Columns(2).Width = 100
-        dgvAspects.Columns(2).HeaderText = "Вес аспекта"
-        dgvAspects.Columns(3).Width = 100
-        dgvAspects.Columns(3).HeaderText = "Допустимое отклонение, точность (%)"
-        dgvAspects.Columns(4).Width = 100
-        dgvAspects.Columns(4).HeaderText = "Интрпретация"
-        dgvAspects.Columns(5).Width = 100
-        dgvAspects.Columns(5).HeaderText = "Комментарий"
-        dgvAspects.Columns(6).Width = 200
-        dgvAspects.Columns(6).HeaderText = "Значение (из Inventor)"
-        dgvAspects.Columns(7).Width = 100
-        dgvAspects.Columns(7).HeaderText = "Имеющееся отклонение (%)"
-
         'увеличить форму на весь экран
         Me.WindowState = FormWindowState.Maximized
         'Me.FormBorderStyle = FormBorderStyle.None
@@ -86,6 +66,28 @@ Public Class Form1
             MsgBox(ex.ToString())
         End Try
 
+        'добавить столбцы к dgvAspects
+        dgvAspects.ColumnCount = 8
+        'и задать им заголовки и ibhbye
+        Dim standartWindth = dgvAspects.Width / 8
+        dgvAspects.Columns(0).HeaderText = "Аспект"
+        dgvAspects.Columns(0).Width = standartWindth * 2
+        dgvAspects.Columns(1).HeaderText = "Значение (из Excel)"
+        dgvAspects.Columns(1).Width = standartWindth * 1.25
+        dgvAspects.Columns(2).HeaderText = "Вес аспекта"
+        dgvAspects.Columns(2).Width = standartWindth * 0.5
+        dgvAspects.Columns(3).HeaderText = "Допустимое отклонение, точность (%)"
+        dgvAspects.Columns(3).Width = standartWindth
+        dgvAspects.Columns(4).HeaderText = "Интрпретация"
+        dgvAspects.Columns(4).Width = standartWindth * 0.5
+        dgvAspects.Columns(5).HeaderText = "Комментарий"
+        dgvAspects.Columns(5).Width = standartWindth * 0.5
+        dgvAspects.Columns(6).HeaderText = "Значение (из Inventor)"
+        dgvAspects.Columns(6).Width = standartWindth * 1.25
+        dgvAspects.Columns(7).HeaderText = "Имеющееся отклонение (%)"
+        dgvAspects.Columns(7).Width = standartWindth
+
+
         lblLoading.Visible = False 'закрыть сообщение загрузки
     End Sub
 
@@ -95,7 +97,8 @@ Public Class Form1
         Dim _openFileDialog As New OpenFileDialog
         Dim fullName As String = ""
         Try
-            _openFileDialog.InitialDirectory = My.Computer.FileSystem.SpecialDirectories.Desktop
+            '_openFileDialog.InitialDirectory = My.Computer.FileSystem.SpecialDirectories.Desktop
+            _openFileDialog.RestoreDirectory = True
             _openFileDialog.Title = "Open Excel File"
             _openFileDialog.Filter = "Excel Files(2007)|*.xlsx|Excel Files(2003)|*.xls"
 
@@ -188,7 +191,8 @@ Public Class Form1
         'выбрать фаил сборки
         Dim fullName As String = ""
         Try
-            _openFileDialog.InitialDirectory = My.Computer.FileSystem.SpecialDirectories.Desktop
+            '_openFileDialog.InitialDirectory = My.Computer.FileSystem.SpecialDirectories.Desktop
+            _openFileDialog.RestoreDirectory = True
             _openFileDialog.Title = "Open Assembly File"
             _openFileDialog.Filter = "Фаил сборки|*.iam"
 
@@ -268,13 +272,47 @@ Public Class Form1
             Next
 
             'Получить данные каждой детали
-            getPart001(part001Doc)
-            getPart002(part002Doc)
-            getPart003(part003Doc)
-            getPart004(part004Doc)
-            getPart005(part005Doc)
-            getPart006(part006Doc)
-            getPart007(part007Doc)
+            If part001Doc IsNot Nothing Then
+                getPart001(part001Doc)
+            Else
+                MsgBox("Ошибка: деталь не найдена")
+            End If
+
+            If part002Doc IsNot Nothing Then
+                getPart002(part002Doc)
+            Else
+                MsgBox("Ошибка: деталь не найдена")
+            End If
+
+            If part003Doc IsNot Nothing Then
+                getPart003(part003Doc)
+            Else
+                MsgBox("Ошибка: деталь не найдена")
+            End If
+
+            If part004Doc IsNot Nothing Then
+                getPart004(part004Doc)
+            Else
+                MsgBox("Ошибка: деталь не найдена")
+            End If
+
+            If part005Doc IsNot Nothing Then
+                getPart005(part005Doc)
+            Else
+                MsgBox("Ошибка: деталь не найдена")
+            End If
+
+            If part006Doc IsNot Nothing Then
+                getPart006(part006Doc)
+            Else
+                MsgBox("Ошибка: деталь не найдена")
+            End If
+
+            If part007Doc IsNot Nothing Then
+                getPart007(part007Doc)
+            Else
+                MsgBox("Ошибка: деталь не найдена")
+            End If
 
             '---assembly 's---
             'Получить данные каждой сборки
@@ -291,7 +329,11 @@ Public Class Form1
             End If
 
             'Получить данные каждого чертежа
-            getDrawing007(drawing007Doc)
+            If part007Doc IsNot Nothing Then
+                getDrawing007(drawing007Doc)
+            Else
+                MsgBox("Ошибка: деталь не найдена, ее чертеж не может быть получен")
+            End If
 
             'Все данные из Inventor получены в _listAspects. dgv надо обновить
             dgvAspects.Rows.Clear()
@@ -300,6 +342,11 @@ Public Class Form1
             Next
 
             lblCountOfAssembly.Text = _counterForInventorAspects
+
+            'ТЕСТОВАЯ функция эскизов, потом удалить
+            'For Each pd As PartDocument In asmDoc.AllReferencedDocuments
+            '    getInfoAboutSketches(pd)
+            'Next
 
             lblLoading.Visible = False 'закрыть сообщение загрузки
         End If
@@ -318,9 +365,9 @@ Public Class Form1
         Dim style_wrong As New DataGridViewCellStyle
         style_wrong.BackColor = Drawing.Color.LightCoral
         Dim style_full_right As New DataGridViewCellStyle
-        style_full_right.BackColor = Drawing.Color.Green
+        style_full_right.BackColor = Drawing.Color.LightGreen
         Dim style_right As New DataGridViewCellStyle
-        style_right.BackColor = Drawing.Color.LightGreen
+        style_right.BackColor = Drawing.Color.DarkSeaGreen
 
         For i = 0 To (_listAspects.Count - 1)
             If (_listAspects(i).valueFromExcel = _listAspects(i).valueFromInventor) Then
@@ -358,9 +405,9 @@ Public Class Form1
         End If
     End Sub
 
-    'функция по нажатию кнопки "очистить обе таблицы"
+    'функция по нажатию кнопки "очистить таблицу"
     Private Sub btnClearAll_Click(sender As Object, e As EventArgs) Handles btnClearAll.Click
-        Dim result As Integer = MessageBox.Show("Вы действительно хотите очистить обе таблицы?", "Подтверждение действия", MessageBoxButtons.OKCancel)
+        Dim result As Integer = MessageBox.Show("Вы действительно хотите очистить таблицу?", "Подтверждение действия", MessageBoxButtons.OKCancel)
         If result = DialogResult.Cancel Then
             'отмена: ничего не делать
         ElseIf result = DialogResult.OK Then
@@ -385,7 +432,8 @@ Public Class Form1
 
         'выбрать место сохрания файла excel
         Dim saveFileDialog As New SaveFileDialog 'диалог выбора места сохранения файла
-        saveFileDialog.InitialDirectory = My.Computer.FileSystem.SpecialDirectories.Desktop
+        'saveFileDialog.InitialDirectory = My.Computer.FileSystem.SpecialDirectories.Desktop
+        saveFileDialog.RestoreDirectory = True
         saveFileDialog.Filter = "Excel Files(2007)|*.xlsx|Excel Files(2003)|*.xls"
         saveFileDialog.Title = "Save Excel File"
         saveFileDialog.ShowDialog()
@@ -481,37 +529,42 @@ Public Class Form1
 
     'вспомогательная функция найти чертеж к документу: сборке (assembly) или детали (part). если чертеж не найден, возвращает пустую строку: ""
     Private Function findDrawingFullFileNameForDocument(ByVal doc As Document) As String
-        Dim fullFilename As String = doc.FullFileName
+        Try
+            Dim fullFilename As String = doc.FullFileName
 
-        'переменная drawingFilename будет хранить полное имя чертежа для сборки / детали
-        Dim drawingFilename As String = ""
+            'переменная drawingFilename будет хранить полное имя чертежа для сборки / детали
+            Dim drawingFilename As String = ""
 
-        ' Extract the path from the full filename.
-        Dim path As String = Microsoft.VisualBasic.Left$(fullFilename, InStrRev(fullFilename, "\"))
+            ' Extract the path from the full filename.
+            Dim path As String = Microsoft.VisualBasic.Left$(fullFilename, InStrRev(fullFilename, "\"))
 
-        ' Extract the filename from the full filename.
-        Dim filename As String = Microsoft.VisualBasic.Right$(fullFilename, Len(fullFilename) - InStrRev(fullFilename, "\"))
+            ' Extract the filename from the full filename.
+            Dim filename As String = Microsoft.VisualBasic.Right$(fullFilename, Len(fullFilename) - InStrRev(fullFilename, "\"))
 
-        ' Replace the extension with "dwg"
-        filename = Microsoft.VisualBasic.Left$(filename, InStrRev(filename, ".")) & "dwg"
-        ' Find if the drawing exists.
-        drawingFilename = _invApplication.DesignProjectManager.ResolveFile(path, filename)
-
-        ' Check the result.
-        If drawingFilename = "" Then
-            ' Try again with idw extension.
-            filename = Microsoft.VisualBasic.Left$(filename, InStrRev(filename, ".")) & "idw"
+            ' Replace the extension with "dwg"
+            filename = Microsoft.VisualBasic.Left$(filename, InStrRev(filename, ".")) & "dwg"
             ' Find if the drawing exists.
             drawingFilename = _invApplication.DesignProjectManager.ResolveFile(path, filename)
-        End If
 
-        ' Display the result.
-        If drawingFilename <> "" Then
-            Return drawingFilename
-        Else
-            MsgBox("No drawing was found for """ & doc.FullFileName & """")
-            Return drawingFilename
-        End If
+            ' Check the result.
+            If drawingFilename = "" Then
+                ' Try again with idw extension.
+                filename = Microsoft.VisualBasic.Left$(filename, InStrRev(filename, ".")) & "idw"
+                ' Find if the drawing exists.
+                drawingFilename = _invApplication.DesignProjectManager.ResolveFile(path, filename)
+            End If
+
+            ' Display the result.
+            If drawingFilename <> "" Then
+                Return drawingFilename
+            Else
+                MsgBox("No drawing was found for """ & doc.FullFileName & """")
+                Return drawingFilename
+            End If
+        Catch ex As Exception
+            MsgBox("Ошибка: невозможно найти чертеж для документа" & vbCrLf & ex.ToString)
+            Return ""
+        End Try
     End Function
 
     'вспомогательная функция: проверить видимость 2d эскизов и объектов вспомогательной геометрии (плоскости, оси, точки). true - они все невидимы, false - есть как минимум 1 видимый объект
@@ -564,9 +617,9 @@ Public Class Form1
 
     'вспомогательная функция: получить таблицу свойств детали (доступ к таблице параметров)
     Private Function getParametersFromPart(ByVal partDoc As Document) As List(Of PartParameter)
-        Dim allParams As Parameters = partDoc.ComponentDefinition.Parameters
         Dim listOfParameters As New List(Of PartParameter)() 'список параметров документа
 
+        Dim allParams As Parameters = partDoc.ComponentDefinition.Parameters
         If allParams.Count > 0 Then
             For Each param As Parameter In allParams
                 Dim partParameter As PartParameter
@@ -678,6 +731,19 @@ Public Class Form1
 
         '"Все эскизы (2D и 3D) и объекты вспомогательной геометрии (плоскости, оси, точки) невидимы"
         addInventorValuesInAspectDataList(isOriginsInvisible(partDoc)) 'записать true - да, невидимый; false - видимый
+
+        'НОВОЕ Все эскизы детали должны быть полностью определены
+        Dim isOk As Boolean = True
+        Dim partDef As PartComponentDefinition = partDoc.ComponentDefinition
+        'пройти по всем эскизам детали
+        For Each sketch As Sketch In partDef.Sketches
+            'является ли эскиз полностью определенным? если нет, то записывем ошибку
+            If sketch.ConstraintStatus <> ConstraintStatusEnum.kFullyConstrainedConstraintStatus Then
+                isOk = False
+                Exit For
+            End If
+        Next
+        addInventorValuesInAspectDataList(isOk) 'записать true - все эскизы детали полностью определены; false - хотя бы один эскиз детали не полностью определен
     End Sub
 
     'вспомогательная функция: получить параметры резьбы
@@ -935,7 +1001,7 @@ Public Class Form1
         addInventorValuesInAspectDataList(findValueInPartParamListByName("d4", listOfParameters)) 'доб. value в _listAssembly
 
         '"Геометрия (соосность Ø25 и Ø12,5)"
-        addInventorValuesInAspectDataList("EMPTY VALUE") 'доб. value в _listAssembly
+        addInventorValuesInAspectDataList("EMPTY VALUE") 'доб. value в _listAssembly      
     End Sub
 
     Private Sub getPart006(ByVal partDoc As Document)
@@ -1170,8 +1236,9 @@ Public Class Form1
     End Sub
 
     Private Sub getDrawing007(ByVal drawingDoc As Document)
+
         Dim oSheet As Sheet = drawingDoc.Sheets.Item(1) 'лист чертежа
-        Dim oView As DrawingView = oSheet.DrawingViews.Item(1) 'вид листа
+        Dim oView As DrawingView = oSheet.DrawingViews.Item(1) 'вид листа     
 
         'start (get numeric parameters)
         'Dim str As String = ""
@@ -1291,8 +1358,116 @@ Public Class Form1
         addInventorValuesInAspectDataList("EMPTY VALUE")
 
         '"Заполнение основной надписи"
-        addInventorValuesInAspectDataList("EMPTY VALUE")
+        Dim author As String = Nothing
+        Dim designation As String = Nothing
+        Dim header As String = Nothing
+
+        Dim oTitleBlock As TitleBlock = oSheet.TitleBlock
+        For Each tb As TextBox In oTitleBlock.Definition.Sketch.TextBoxes
+            If tb.Text = "<АВТОР>" Then
+                author = oTitleBlock.GetResultText(tb)
+            End If
+            If tb.Text = "<ОБОЗНАЧЕНИЕ>" Then
+                designation = oTitleBlock.GetResultText(tb)
+            End If
+            If tb.Text = "<ЗАГОЛОВОК>" Then
+                header = oTitleBlock.GetResultText(tb)
+            End If
+        Next
+        'если одна из строк пустая - ошибка, основная надпись не заполнена
+        If (String.IsNullOrEmpty(author) Or String.IsNullOrEmpty(designation) Or String.IsNullOrEmpty(header)) Then
+            addInventorValuesInAspectDataList(False)
+        Else
+            addInventorValuesInAspectDataList(True)
+        End If
+
     End Sub
+
+    'ДОПОЛНИТЕЛЬНАЯ ТЕСТОВАЯ функция получения информации об эскизах
+    Private Sub getInfoAboutSketches(ByVal partDoc As Document)
+        Dim finalString As String = ""
+        finalString &= vbCrLf & "Имя детали: " & partDoc.DisplayName & vbCrLf
+        finalString &= "Всего содержит эскизов: " & partDoc.ComponentDefinition.Sketches.Count & vbCrLf
+
+        For Each oSketch As Sketch In partDoc.ComponentDefinition.Sketches
+            finalString &= vbCrLf & "-Имя эскиза: " & oSketch.Name & vbCrLf
+
+            finalString &= "Всего DimensionConstraints в текущем эскизе: " & oSketch.DimensionConstraints.Count & vbCrLf
+            For Each oDimensionConstraint As DimensionConstraint In oSketch.DimensionConstraints
+                Select Case oDimensionConstraint.Type
+                    Case ObjectTypeEnum.kArcLengthDimConstraintObject
+                        finalString &= "ArcLengthDimConstraint" & vbCrLf
+                    Case ObjectTypeEnum.kDiameterDimConstraintObject
+                        finalString &= "DiameterDimConstraintObject" & vbCrLf
+                    Case ObjectTypeEnum.kEllipseRadiusDimConstraintObject
+                        finalString &= "EllipseRadiusDimConstraintObject" & vbCrLf
+                    Case ObjectTypeEnum.kOffsetDimConstraintObject
+                        finalString &= "OffsetDimConstraint" & vbCrLf
+                    Case ObjectTypeEnum.kRadiusDimConstraintObject
+                        finalString &= "RadiusDimConstraint" & vbCrLf
+                    Case ObjectTypeEnum.kTangentDistanceDimConstraintObject
+                        finalString &= "kTangentDistanceDimConstraint" & vbCrLf
+                    Case ObjectTypeEnum.kThreePointAngleDimConstraintObject
+                        finalString &= "ThreePointAngleDimConstraint" & vbCrLf
+                    Case ObjectTypeEnum.kTwoLineAngleDimConstraintObject
+                        finalString &= "TwoLineAngleDimConstraint" & vbCrLf
+                    Case ObjectTypeEnum.kTwoPointDistanceDimConstraintObject
+                        finalString &= "TwoPointDistanceDimConstraint" & vbCrLf
+                    Case Else
+                        finalString &= "Неизвестно" & vbCrLf
+                End Select
+            Next
+
+            finalString &= "Всего GeometricConstraints в текущем эскизе: " & oSketch.GeometricConstraints.Count & vbCrLf
+            For Each oGeometricConstraint As GeometricConstraint In oSketch.GeometricConstraints
+                Select Case oGeometricConstraint.Type
+                    Case ObjectTypeEnum.kCoincidentConstraintObject
+                        finalString &= "CoincidentConstraintObject" & vbCrLf
+                    Case ObjectTypeEnum.kCollinearConstraintObject
+                        finalString &= "CollinearConstraintObject" & vbCrLf
+                    Case ObjectTypeEnum.kConcentricConstraintObject
+                        finalString &= "ConcentricConstraintObject" & vbCrLf
+                    Case ObjectTypeEnum.kEqualLengthConstraintObject
+                        finalString &= "EqualLengthConstraintObject" & vbCrLf
+                    Case ObjectTypeEnum.kEqualRadiusConstraintObject
+                        finalString &= "EqualRadiusConstraintObject" & vbCrLf
+                    Case ObjectTypeEnum.kGroundConstraintObject
+                        finalString &= "GroundConstraintObject" & vbCrLf
+                    Case ObjectTypeEnum.kHorizontalAlignConstraintObject
+                        finalString &= "HorizontalAlignConstraintObject" & vbCrLf
+                    Case ObjectTypeEnum.kHorizontalConstraintObject
+                        finalString &= "HorizontalConstraintObject" & vbCrLf
+                    Case ObjectTypeEnum.kMidpointConstraintObject
+                        finalString &= "MidpointConstraintObject" & vbCrLf
+                    Case ObjectTypeEnum.kOffsetConstraintObject
+                        finalString &= "OffsetConstraintObject" & vbCrLf
+                    Case ObjectTypeEnum.kParallelConstraintObject
+                        finalString &= "ParallelConstraintObject" & vbCrLf
+                    Case ObjectTypeEnum.kPatternConstraintObject
+                        finalString &= "PatternConstraintObject" & vbCrLf
+                    Case ObjectTypeEnum.kPerpendicularConstraintObject
+                        finalString &= "PerpendicularConstraintObject" & vbCrLf
+                    Case ObjectTypeEnum.kSmoothConstraintObject
+                        finalString &= "SmoothConstraintObject" & vbCrLf
+                    Case ObjectTypeEnum.kSplineFitPointConstraintObject
+                        finalString &= "SplineFitPointConstraintObject" & vbCrLf
+                    Case ObjectTypeEnum.kSymmetryConstraintObject
+                        finalString &= "SymmetryConstraintObject" & vbCrLf
+                    Case ObjectTypeEnum.kTangentSketchConstraintObject
+                        finalString &= "TangentSketchConstraintObject" & vbCrLf
+                    Case ObjectTypeEnum.kVerticalAlignConstraintObject
+                        finalString &= "VerticalAlignConstraintObject" & vbCrLf
+                    Case ObjectTypeEnum.kVerticalConstraintObject
+                        finalString &= "VerticalConstraintObject" & vbCrLf
+                    Case Else
+                        finalString &= "Неизвестно" & vbCrLf
+                End Select
+            Next
+        Next
+
+        My.Computer.FileSystem.WriteAllText("C:\Users\Сергей\Desktop\sketches_info.txt", finalString, True)
+    End Sub
+
 
     'НЕАКТУЛЬНАЯ вспомогательная функция: заменить в структуре типа AspectData значение, получаемое из Inventor (2 последних столбца)
     'неактуальная потому, что имена аспектов не уникальные
